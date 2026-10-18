@@ -75,6 +75,9 @@
   .err { color: var(--danger); font-size: 13px; margin-top: 8px; }
   .loading { color: var(--muted); padding: 30px 0; text-align: center; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .who-contact { margin-top: 14px; font-size: 15px; word-break: break-word; }
+  .who-contact .sub { display: block; font-size: 12px; margin-bottom: 2px; }
+  .who-contact a { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -134,6 +137,16 @@
   </div>
 </div></div>
 
+<div class="sheet-bg" id="whoBg"><div class="sheet">
+  <h2 id="whoName"></h2>
+  <div id="whoRoom"></div>
+  <div id="whoSlot" class="sub" style="margin-top:4px"></div>
+  <div id="whoContact" class="who-contact"></div>
+  <div class="actions">
+    <button class="btn ghost" id="whoClose" data-i18n="close">Закрыть</button>
+  </div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -152,11 +165,14 @@ if (!deviceId) {
 const I18N = {
   ru: {
     title: 'Запись на стирку', subtitle: 'Запись открыта до ближайшего воскресенья включительно', loading: 'Загружаю слоты…',
-    lgFree: 'свободно', lgSel: 'выбрано', lgMine: 'моё — нажми, чтобы отменить', lgTaken: 'занято (номер комнаты)', hint: 'Нажми на занятую ячейку — покажем, кто записан.',
+    lgFree: 'свободно', lgSel: 'выбрано', lgMine: 'моё — нажми, чтобы отменить', lgTaken: 'занято (номер комнаты)', hint: 'Нажми на занятую ячейку — покажем, кто записан и как с ним связаться.',
     book: 'Записаться', booking: 'Записываю…', confirmTitle: 'Подтвердить запись', receipt: 'Квитанция об оплате',
     consent: 'Выражаю согласие, что за предоставление заведомо подложных документов и информации несу дисциплинарную ответственность',
     back: 'Назад', undoTitle: 'Отменить запись?', keep: 'Оставить', cancel: 'Отменить',
-    name: 'Фамилия и имя', namePh: 'Иванова Мария', room: 'Комната', remember: 'Запомним на этом телефоне — в следующий раз вводить не придётся.',
+    name: 'Фамилия и имя', namePh: 'Иванова Мария', room: 'Комната',
+    contact: 'Контакт для связи — по желанию', contactPh: '@telegram и/или vk.com/…',
+    contactHint: 'По желанию оставь ВК или Telegram (можно оба), чтобы с тобой могли быстро связаться, если возникнут проблемы. Контакт увидят те, кто нажмёт на твою запись.',
+    whoContact: 'Контакт', whoNoContact: 'Контакт не оставлен', close: 'Закрыть', remember: 'Запомним на этом телефоне — в следующий раз вводить не придётся.',
     edit: 'Изменить', roomN: n => 'комната ' + n, today: 'сегодня', tomorrow: 'завтра', wd: ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'],
     locale: 'ru-RU', machine: n => 'машинка №' + n, who: (name, room) => `${name}, комната ${room}`, mine: 'моё', ariaMine: 'моя запись', ariaTaken: 'занято', ariaPast: 'прошло', ariaSel: 'выбрано',
     selected: (n, sum) => `Выбрано: <b>${n}</b> · ${sum} ₽`, pick: 'Выбери ячейки в таблице', fill: 'Заполни имя и комнату',
@@ -169,11 +185,14 @@ const I18N = {
   },
   en: {
     title: 'Laundry booking', subtitle: 'Booking is open up to and including the coming Sunday', loading: 'Loading slots…',
-    lgFree: 'free', lgSel: 'selected', lgMine: 'mine — tap to cancel', lgTaken: 'taken (room number)', hint: 'Tap a taken cell to see who booked it.',
+    lgFree: 'free', lgSel: 'selected', lgMine: 'mine — tap to cancel', lgTaken: 'taken (room number)', hint: 'Tap a taken cell to see who booked it and how to reach them.',
     book: 'Book', booking: 'Booking…', confirmTitle: 'Confirm booking', receipt: 'Payment receipt',
     consent: 'I agree that I am responsible for the provision of knowingly forged documents and information',
     back: 'Back', undoTitle: 'Cancel booking?', keep: 'Keep', cancel: 'Cancel',
-    name: 'Last name and first name', namePh: 'Ivanova Maria', room: 'Room', remember: 'Saved on this phone — you won’t need to type it again.',
+    name: 'Last name and first name', namePh: 'Ivanova Maria', room: 'Room',
+    contact: 'Contact — optional', contactPh: '@telegram and/or vk.com/…',
+    contactHint: 'Optionally leave your VK or Telegram (or both) so people can reach you quickly if something goes wrong. Anyone who taps your booking will see it.',
+    whoContact: 'Contact', whoNoContact: 'No contact left', close: 'Close', remember: 'Saved on this phone — you won’t need to type it again.',
     edit: 'Edit', roomN: n => 'room ' + n, today: 'today', tomorrow: 'tomorrow', wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     locale: 'en-GB', machine: n => 'machine #' + n, who: (name, room) => `${name}, room ${room}`, mine: 'mine', ariaMine: 'my booking', ariaTaken: 'taken', ariaPast: 'past', ariaSel: 'selected',
     selected: (n, sum) => `Selected: <b>${n}</b> · ${sum} ₽`, pick: 'Pick cells in the table', fill: 'Enter your name and room',
@@ -253,16 +272,18 @@ function renderProfile() {
         <div><label for="name">${T().name}</label><input type="text" id="name" autocomplete="name" placeholder="${T().namePh}"></div>
         <div><label for="room">${T().room}</label><input type="text" id="room" inputmode="numeric" placeholder="412"></div>
       </div>
+      <div style="margin-top:10px"><label for="contact">${T().contact}</label><input type="text" id="contact" autocomplete="off" autocapitalize="off" placeholder="${T().contactPh}"></div>
+      <div class="sub" style="margin-top:6px">${T().contactHint}</div>
       <div class="sub" style="margin-top:8px">${T().remember}</div>`;
-    $('name').value = profile.name; $('room').value = profile.room;
-    $('name').oninput = $('room').oninput = () => {
-      profile = { name: $('name').value.trim(), room: $('room').value.trim() };
+    $('name').value = profile.name; $('room').value = profile.room; $('contact').value = profile.contact || '';
+    $('name').oninput = $('room').oninput = $('contact').oninput = () => {
+      profile = { name: $('name').value.trim(), room: $('room').value.trim(), contact: $('contact').value.trim() };
       store.set('profile', profile); updateBar();
     };
   } else {
     el.innerHTML = `<div class="me"><div><b></b> <span class="sub"></span></div><button class="link" id="edit">${T().edit}</button></div>`;
     el.querySelector('b').textContent = profile.name;
-    el.querySelector('.sub').textContent = T().roomN(profile.room);
+    el.querySelector('.sub').textContent = T().roomN(profile.room) + (profile.contact ? ' · ' + profile.contact : '');
     $('edit').onclick = () => { editingProfile = true; renderProfile(); $('name').focus(); };
   }
 }
@@ -316,7 +337,7 @@ function onCell(k) {
   const t = state.taken.find(x => key(x.date, x.slot, x.machine) === k);
   if (t && t.mine) return openUndo(t);
   // Чужая запись: показываем, кто записан
-  if (t) return toast(`${T().who(t.name, t.room)} · ${dayLabel(t.date)}, ${t.slot}, ${T().machine(t.machine)}`);
+  if (t) return openWho(t);
   const [d, s] = k.split('#');
   if (isClosed(d, s)) return;
   selected.has(k) ? selected.delete(k) : selected.add(k);
@@ -368,7 +389,7 @@ $('doBook').onclick = async () => {
   btn.disabled = true; btn.textContent = T().booking; $('bookErr').textContent = '';
   try {
     const receipt = await readFile($('receipt').files[0]);
-    const res = await call('book', { deviceId, name: profile.name, room: profile.room, consent: true, cells: sortedCells(), receipt });
+    const res = await call('book', { deviceId, name: profile.name, room: profile.room, contact: profile.contact || '', consent: true, cells: sortedCells(), receipt });
     state = res.state;
     if (res.ok) {
       selected.clear(); $('receipt').value = '';
@@ -404,6 +425,37 @@ $('doUndo').onclick = async () => {
   } catch (e) { $('undoErr').textContent = errText(e); }
   finally { btn.disabled = false; }
 };
+
+// ---------- кто записан ----------
+// Делаем ссылки только из узнаваемых форм (@ник, t.me/…, vk.com/…); остальное — просто текст
+function contactNode(token) {
+  let m, href = null;
+  if ((m = token.match(/^@([A-Za-z0-9_]{3,32})$/))) href = 'https://t.me/' + m[1];
+  else if ((m = token.match(/^(?:https?:\/\/)?(?:t\.me|telegram\.me)\/([A-Za-z0-9_]{3,32})\/?$/i))) href = 'https://t.me/' + m[1];
+  else if ((m = token.match(/^(?:https?:\/\/)?(?:m\.)?vk\.com\/([A-Za-z0-9_.]{2,64})\/?$/i))) href = 'https://vk.com/' + m[1];
+  if (!href) return document.createTextNode(token);
+  const a = document.createElement('a');
+  a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = token;
+  return a;
+}
+function openWho(t) {
+  $('whoName').textContent = t.name;
+  $('whoRoom').textContent = T().roomN(t.room);
+  $('whoSlot').textContent = `${dayLabel(t.date)}, ${t.slot}, ${T().machine(t.machine)}`;
+  const c = $('whoContact'); c.innerHTML = '';
+  const label = document.createElement('span'); label.className = 'sub';
+  if (t.contact) {
+    label.textContent = T().whoContact; c.appendChild(label);
+    t.contact.split(/[\s,;]+/).filter(Boolean).forEach((tok, i) => {
+      if (i) c.appendChild(document.createTextNode(' '));
+      c.appendChild(contactNode(tok));
+    });
+  } else {
+    label.textContent = T().whoNoContact; c.appendChild(label);
+  }
+  $('whoBg').classList.add('open');
+}
+$('whoClose').onclick = () => $('whoBg').classList.remove('open');
 
 document.querySelectorAll('.sheet-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
 

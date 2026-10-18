@@ -11,8 +11,10 @@ const SHEET = 'Записи';
 const RECEIPTS_FOLDER = 'Стирка — квитанции';
 const MAX_RECEIPT_BYTES = 8 * 1024 * 1024;
 
-const HEADERS = ['ID', 'Создано', 'Дата', 'Время', 'Машинка', 'Фамилия и имя', 'Комната', 'Оплата, ₽', 'Квитанция', 'Статус', 'Устройство', 'Пачка'];
-const COL = { id: 0, created: 1, date: 2, slot: 3, machine: 4, name: 5, room: 6, paid: 7, receipt: 8, status: 9, device: 10, batch: 11 };
+// Новые колонки добавляем только в конец: в таблице уже есть живые записи
+const HEADERS = ['ID', 'Создано', 'Дата', 'Время', 'Машинка', 'Фамилия и имя', 'Комната', 'Оплата, ₽', 'Квитанция', 'Статус', 'Устройство', 'Пачка', 'Контакт'];
+const COL = { id: 0, created: 1, date: 2, slot: 3, machine: 4, name: 5, room: 6, paid: 7, receipt: 8, status: 9, device: 10, batch: 11, contact: 12 };
+const MAX_CONTACT_LEN = 100;
 
 /**
  * GET без параметров — страница (запасной вариант), GET ?action=state&device=… — JSON для GitHub Pages.
@@ -55,7 +57,8 @@ function getState(deviceId) {
     slot: r[COL.slot],
     machine: Number(r[COL.machine]),
     room: String(r[COL.room]),
-    name: String(r[COL.name]), // показывается по нажатию на занятую ячейку
+    name: String(r[COL.name]), // имя и контакт показываются по нажатию на занятую ячейку
+    contact: String(r[COL.contact] || ''),
     mine: r[COL.device] === device,
     id: r[COL.id],
   }));
@@ -64,11 +67,12 @@ function getState(deviceId) {
 
 /**
  * Записывает пачку ячеек одним запросом.
- * req = { deviceId, name, room, consent, cells: [{date, slot, machine}], receipt?: {name, mime, base64} }
+ * req = { deviceId, name, room, contact?, consent, cells: [{date, slot, machine}], receipt?: {name, mime, base64} }
  */
 function book(req) {
   const name = String(req.name || '').trim();
   const room = String(req.room || '').trim();
+  const contact = String(req.contact || '').trim().slice(0, MAX_CONTACT_LEN);
   // Ошибки — кодами, текст на нужном языке подставляет страница
   if (!name || !room) throw new Error('ERR_PROFILE');
   if (!req.consent) throw new Error('ERR_CONSENT');
@@ -107,6 +111,7 @@ function book(req) {
       r[COL.room] = room;
       r[COL.paid] = PRICE;
       r[COL.receipt] = receiptUrl;
+      r[COL.contact] = contact;
       r[COL.status] = 'active';
       r[COL.device] = device;
       r[COL.batch] = batch;
