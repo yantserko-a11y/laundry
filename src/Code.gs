@@ -55,6 +55,7 @@ function getState(deviceId) {
     slot: r[COL.slot],
     machine: Number(r[COL.machine]),
     room: String(r[COL.room]),
+    name: String(r[COL.name]), // показывается по нажатию на занятую ячейку
     mine: r[COL.device] === device,
     id: r[COL.id],
   }));

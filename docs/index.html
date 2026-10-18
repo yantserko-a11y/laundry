@@ -36,7 +36,7 @@
   th.slot b { display: block; color: var(--text); font-size: 14px; }
   td button { width: 100%; height: 44px; border-radius: 10px; border: 1px solid var(--free-line); background: var(--free); color: var(--text); font: 600 12px/1.1 inherit; cursor: pointer; padding: 0; }
   td button.sel { background: var(--sel); border-color: var(--sel); color: var(--sel-text); }
-  td button.taken { background: var(--taken); border-color: transparent; color: var(--taken-text); cursor: default; font-weight: 500; }
+  td button.taken { background: var(--taken); border-color: transparent; color: var(--taken-text); cursor: pointer; font-weight: 500; }
   td button.mine { background: var(--mine); border-color: var(--mine-line); color: var(--mine-text); }
   td button.closed { background: transparent; border: 1px dashed var(--line); color: transparent; cursor: default; }
   .days { display: flex; gap: 6px; overflow-x: auto; margin: 0 -14px 12px; padding: 0 14px 2px; scrollbar-width: none; }
@@ -74,6 +74,7 @@
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 20; display: none; max-width: calc(100% - 32px); }
   .err { color: var(--danger); font-size: 13px; margin-top: 8px; }
   .loading { color: var(--muted); padding: 30px 0; text-align: center; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -97,6 +98,7 @@
       <span><i style="background:var(--mine);border-color:var(--mine-line)"></i><span data-i18n="lgMine">моё — нажми, чтобы отменить</span></span>
       <span><i style="background:var(--taken);border-color:transparent"></i><span data-i18n="lgTaken">занято (номер комнаты)</span></span>
     </div>
+    <div class="hint" data-i18n="hint">Нажми на занятую ячейку — покажем, кто записан.</div>
   </div>
 </div>
 
@@ -150,13 +152,13 @@ if (!deviceId) {
 const I18N = {
   ru: {
     title: 'Запись на стирку', subtitle: 'Запись открыта до ближайшего воскресенья включительно', loading: 'Загружаю слоты…',
-    lgFree: 'свободно', lgSel: 'выбрано', lgMine: 'моё — нажми, чтобы отменить', lgTaken: 'занято (номер комнаты)',
+    lgFree: 'свободно', lgSel: 'выбрано', lgMine: 'моё — нажми, чтобы отменить', lgTaken: 'занято (номер комнаты)', hint: 'Нажми на занятую ячейку — покажем, кто записан.',
     book: 'Записаться', booking: 'Записываю…', confirmTitle: 'Подтвердить запись', receipt: 'Квитанция об оплате',
     consent: 'Выражаю согласие, что за предоставление заведомо подложных документов и информации несу дисциплинарную ответственность',
     back: 'Назад', undoTitle: 'Отменить запись?', keep: 'Оставить', cancel: 'Отменить',
     name: 'Фамилия и имя', namePh: 'Иванова Мария', room: 'Комната', remember: 'Запомним на этом телефоне — в следующий раз вводить не придётся.',
     edit: 'Изменить', roomN: n => 'комната ' + n, today: 'сегодня', tomorrow: 'завтра', wd: ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'],
-    locale: 'ru-RU', machine: n => 'машинка №' + n, mine: 'моё', ariaMine: 'моя запись', ariaTaken: 'занято', ariaPast: 'прошло', ariaSel: 'выбрано',
+    locale: 'ru-RU', machine: n => 'машинка №' + n, who: (name, room) => `${name}, комната ${room}`, mine: 'моё', ariaMine: 'моя запись', ariaTaken: 'занято', ariaPast: 'прошло', ariaSel: 'выбрано',
     selected: (n, sum) => `Выбрано: <b>${n}</b> · ${sum} ₽`, pick: 'Выбери ячейки в таблице', fill: 'Заполни имя и комнату',
     total: sum => `Итого: ${sum} ₽`, perWash: p => `(${p} ₽ за стирку)`, tickConsent: 'Поставь галочку согласия.',
     done: 'Готово, записано ✓', conflict: list => `Кто-то успел раньше: ${list}. Выбери другие.`, cancelled: 'Запись отменена',
@@ -167,13 +169,13 @@ const I18N = {
   },
   en: {
     title: 'Laundry booking', subtitle: 'Booking is open up to and including the coming Sunday', loading: 'Loading slots…',
-    lgFree: 'free', lgSel: 'selected', lgMine: 'mine — tap to cancel', lgTaken: 'taken (room number)',
+    lgFree: 'free', lgSel: 'selected', lgMine: 'mine — tap to cancel', lgTaken: 'taken (room number)', hint: 'Tap a taken cell to see who booked it.',
     book: 'Book', booking: 'Booking…', confirmTitle: 'Confirm booking', receipt: 'Payment receipt',
     consent: 'I agree that I am responsible for the provision of knowingly forged documents and information',
     back: 'Back', undoTitle: 'Cancel booking?', keep: 'Keep', cancel: 'Cancel',
     name: 'Last name and first name', namePh: 'Ivanova Maria', room: 'Room', remember: 'Saved on this phone — you won’t need to type it again.',
     edit: 'Edit', roomN: n => 'room ' + n, today: 'today', tomorrow: 'tomorrow', wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    locale: 'en-GB', machine: n => 'machine #' + n, mine: 'mine', ariaMine: 'my booking', ariaTaken: 'taken', ariaPast: 'past', ariaSel: 'selected',
+    locale: 'en-GB', machine: n => 'machine #' + n, who: (name, room) => `${name}, room ${room}`, mine: 'mine', ariaMine: 'my booking', ariaTaken: 'taken', ariaPast: 'past', ariaSel: 'selected',
     selected: (n, sum) => `Selected: <b>${n}</b> · ${sum} ₽`, pick: 'Pick cells in the table', fill: 'Enter your name and room',
     total: sum => `Total: ${sum} ₽`, perWash: p => `(${p} ₽ per wash)`, tickConsent: 'Please tick the consent box.',
     done: 'Done, you’re booked ✓', conflict: list => `Someone was faster: ${list}. Pick other cells.`, cancelled: 'Booking cancelled',
@@ -295,12 +297,12 @@ function renderGrid() {
     html += `<tr><th class="slot"><b>${a}</b>–${b}</th>`;
     for (let mc = 1; mc <= state.machines; mc++) {
       const k = key(day, slot, mc), t = taken[k];
-      let cls = '', label = '', aria = `${slot}, ${T().machine(mc)}`;
+      let cls = '', label = '', title = '', aria = `${slot}, ${T().machine(mc)}`;
       if (t && t.mine) { cls = 'mine'; label = T().mine; aria += ', ' + T().ariaMine; }
-      else if (t) { cls = 'taken'; label = esc(t.room); aria += ', ' + T().ariaTaken; }
+      else if (t) { cls = 'taken'; label = esc(t.room); title = esc(T().who(t.name, t.room)); aria += ', ' + T().ariaTaken + ': ' + title; }
       else if (closed) { cls = 'closed'; aria += ', ' + T().ariaPast; }
       else if (selected.has(k)) { cls = 'sel'; label = '✓'; aria += ', ' + T().ariaSel; }
-      html += `<td><button class="${cls}" data-k="${k}" aria-label="${aria}">${label}</button></td>`;
+      html += `<td><button class="${cls}" data-k="${k}" aria-label="${aria}"${title ? ` title="${title}"` : ''}>${label}</button></td>`;
     }
     html += '</tr>';
   });
@@ -313,8 +315,10 @@ function renderGrid() {
 function onCell(k) {
   const t = state.taken.find(x => key(x.date, x.slot, x.machine) === k);
   if (t && t.mine) return openUndo(t);
+  // Чужая запись: показываем, кто записан
+  if (t) return toast(`${T().who(t.name, t.room)} · ${dayLabel(t.date)}, ${t.slot}, ${T().machine(t.machine)}`);
   const [d, s] = k.split('#');
-  if (t || isClosed(d, s)) return;
+  if (isClosed(d, s)) return;
   selected.has(k) ? selected.delete(k) : selected.add(k);
   renderGrid();
 }
