@@ -60,7 +60,7 @@ function getState(deviceId) {
     date: r[COL.date],
     slot: r[COL.slot],
     machine: Number(r[COL.machine]),
-    room: String(r[COL.room]),
+    // Номер комнаты наружу не отдаём: он есть только в Google-таблице
     name: String(r[COL.name]), // имя и контакт показываются по нажатию на занятую ячейку
     contact: String(r[COL.contact] || ''),
     mine: r[COL.device] === device,

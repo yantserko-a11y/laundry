@@ -168,7 +168,6 @@
 
 <div class="sheet-bg" id="whoBg"><div class="sheet">
   <h2 id="whoName"></h2>
-  <div id="whoRoom"></div>
   <div id="whoSlot" class="sub" style="margin-top:4px"></div>
   <div id="whoContact" class="who-contact"></div>
   <div class="actions">
@@ -243,7 +242,7 @@ const I18N = {
     contactHint: 'По желанию оставь ВК или Telegram (можно оба), чтобы с тобой могли быстро связаться, если возникнут проблемы. Контакт увидят те, кто нажмёт на твою запись.',
     whoContact: 'Контакт', whoNoContact: 'Контакт не оставлен', close: 'Закрыть', remember: 'Запомним на этом телефоне — в следующий раз вводить не придётся.',
     edit: 'Изменить', roomN: n => 'комната ' + n, today: 'сегодня', tomorrow: 'завтра', wd: ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'],
-    locale: 'ru-RU', machine: n => 'машинка №' + n, who: (name, room) => `${name}, комната ${room}`, mine: 'моё', ariaMine: 'моя запись', ariaTaken: 'занято', ariaPast: 'прошло', ariaSel: 'выбрано',
+    locale: 'ru-RU', machine: n => 'машинка №' + n, mine: 'моё', ariaMine: 'моя запись', ariaTaken: 'занято', ariaPast: 'прошло', ariaSel: 'выбрано',
     selected: (n, sum) => `Выбрано: <b>${n}</b> · ${sum} ₽`, pick: 'Выбери ячейки в таблице', fill: 'Заполни имя и комнату',
     total: sum => `Итого: ${sum} ₽`, perWash: p => `(${p} ₽ за стирку)`, tickConsent: 'Поставь галочку согласия.',
     done: 'Готово, записано ✓', conflict: list => `Кто-то успел раньше: ${list}. Выбери другие.`, cancelled: 'Запись отменена',
@@ -281,7 +280,7 @@ const I18N = {
     contactHint: 'Optionally leave your VK or Telegram (or both) so people can reach you quickly if something goes wrong. Anyone who taps your booking will see it.',
     whoContact: 'Contact', whoNoContact: 'No contact left', close: 'Close', remember: 'Saved on this phone — you won’t need to type it again.',
     edit: 'Edit', roomN: n => 'room ' + n, today: 'today', tomorrow: 'tomorrow', wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    locale: 'en-GB', machine: n => 'machine #' + n, who: (name, room) => `${name}, room ${room}`, mine: 'mine', ariaMine: 'my booking', ariaTaken: 'taken', ariaPast: 'past', ariaSel: 'selected',
+    locale: 'en-GB', machine: n => 'machine #' + n, mine: 'mine', ariaMine: 'my booking', ariaTaken: 'taken', ariaPast: 'past', ariaSel: 'selected',
     selected: (n, sum) => `Selected: <b>${n}</b> · ${sum} ₽`, pick: 'Pick cells in the table', fill: 'Enter your name and room',
     total: sum => `Total: ${sum} ₽`, perWash: p => `(${p} ₽ per wash)`, tickConsent: 'Please tick the consent box.',
     done: 'Done, you’re booked ✓', conflict: list => `Someone was faster: ${list}. Pick other cells.`, cancelled: 'Booking cancelled',
@@ -576,7 +575,6 @@ function contactNode(token) {
 }
 function openWho(t) {
   $('whoName').textContent = t.name;
-  $('whoRoom').textContent = T().roomN(t.room);
   $('whoSlot').textContent = `${dayLabel(t.date)}, ${t.slot}, ${T().machine(t.machine)}`;
   const c = $('whoContact'); c.innerHTML = '';
   const label = document.createElement('span'); label.className = 'sub';
