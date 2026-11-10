@@ -5,7 +5,7 @@
 
 Страница записи на стирку: сетка «день × слот × машинка», имя и комната запоминаются, можно взять несколько ячеек за раз, отменить свою запись можно с того же телефона.
 
-- `src/Code.gs` — бэкенд на Google Apps Script, данные в листе «Записи» привязанной Google-таблицы, квитанции в папке Drive «Стирка — квитанции». В ночь на понедельник триггер `weeklyReset` удаляет записи прошлой недели.
+- `src/Code.gs` — бэкенд на Google Apps Script, данные в листе «Записи» привязанной Google-таблицы, квитанции в папке Drive «Стирка — квитанции». В ночь на понедельник триггер `weeklyReset` удаляет записи прошлой недели. Триггер принадлежит аккаунту владельца; после смены владельца запустить `reinstallTrigger` от его имени.
 - `src/Index.html` — страница. Внутри Apps Script ходит в бэкенд через `google.script.run`, на GitHub Pages — через `fetch` без cookies Google (иначе при нескольких Google-аккаунтах в браузере Apps Script отдаёт «Не удалось открыть файл»).
 - `docs/index.html` — копия страницы для GitHub Pages, собирается `./build.sh`.
 
@@ -22,7 +22,9 @@
 
 ```bash
 export PATH=~/.local/node/bin:$PATH
-clasp push -f && clasp update-deployment AKfycbx0ZgqzJRiuFUDiF7XprkQcve19oIhvDXlNq8Top7QLdTUy67wMFeqOhRVYzm-RmeTsdw
+# Владелец таблицы и сайта — lensovetik29@gmail.com: выкладывать только от его имени,
+# иначе сайт начнёт выполняться от другого аккаунта
+clasp push -f --user lensovetik && clasp update-deployment AKfycbx0ZgqzJRiuFUDiF7XprkQcve19oIhvDXlNq8Top7QLdTUy67wMFeqOhRVYzm-RmeTsdw --user lensovetik
 ./build.sh && git commit -am "…" && git push   # обновить GitHub Pages
 ```
 

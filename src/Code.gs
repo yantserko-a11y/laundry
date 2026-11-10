@@ -295,6 +295,25 @@ function ensureTrigger_() {
   props.setProperty('resetTrigger', '1');
 }
 
+/**
+ * Пересоздаёт еженедельный триггер от имени того, кто запускает функцию.
+ * Нужно после смены владельца: триггеры принадлежат конкретному аккаунту.
+ */
+function reinstallTrigger() {
+  removeMyTriggers();
+  ScriptApp.newTrigger('weeklyReset').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(0).nearMinute(0).inTimezone(TZ).create();
+  PropertiesService.getScriptProperties().setProperty('resetTrigger', '1');
+  Logger.log('Триггер weeklyReset установлен от имени ' + Session.getEffectiveUser().getEmail());
+}
+
+/** Удаляет триггеры weeklyReset текущего аккаунта (например, бывшего владельца). */
+function removeMyTriggers() {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'weeklyReset')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+}
+
 /** Ручная настройка из редактора: создаёт лист и триггер. */
 function setup() {
   sheet_();
