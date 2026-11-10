@@ -167,7 +167,7 @@ function cancel(deviceId, id) {
 // ---------- админка ----------
 
 /**
- * req = { password, op: 'login' | 'setMachines', machines?: { "<номер>": "<причина>" } }
+ * req = { password, op: 'login' | 'setMachines', machines?: { "<номер>": "" } }
  * В machines передаются только неработающие машинки; остальные считаются рабочими.
  */
 function adminApi(req) {
@@ -177,7 +177,7 @@ function adminApi(req) {
     const out = {};
     Object.keys(req.machines || {}).forEach(k => {
       const n = Number(k);
-      if (n >= 1 && n <= MACHINES) out[n] = String(req.machines[k] || '').trim().slice(0, 120);
+      if (n >= 1 && n <= MACHINES) out[n] = '';
     });
     PropertiesService.getScriptProperties().setProperty('disabled', JSON.stringify(out));
     return { disabled: out };
@@ -198,7 +198,7 @@ function checkAdmin_(password) {
   }
 }
 
-/** Неработающие машинки: { "5": "причина" }. Действуют на все дни, пока админ не включит обратно. */
+/** Неработающие машинки: { "5": "" }. Действуют на все дни, пока админ не включит обратно. */
 function disabled_() {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('disabled') || '{}'); }
   catch (e) { return {}; }

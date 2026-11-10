@@ -97,11 +97,10 @@
   a.btn { display: inline-block; text-decoration: none; }
   .foot { text-align: center; margin-top: 18px; font-size: 13px; }
   .foot .link { color: var(--muted); }
-  .mrow { display: grid; grid-template-columns: 54px 110px 1fr; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .mrow { display: grid; grid-template-columns: 54px 1fr; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .mrow b { font-size: 15px; }
   .mrow label { margin: 0; display: flex; gap: 6px; align-items: center; color: var(--text); font-size: 14px; }
   .mrow input[type=checkbox] { width: 18px; height: 18px; margin: 0; }
-  .mrow input[type=text] { padding: 8px 10px; }
   input[type=password] { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--free-line); border-radius: 10px; background: var(--card); color: var(--text); }
 </style>
 </head>
@@ -244,7 +243,7 @@ const I18N = {
     ERR_EMPTY: 'Выбери хотя бы одну ячейку.', ERR_NOT_MINE: 'Отменить запись можно только с того телефона, с которого записывались.',
     ERR_FILE_SIZE: 'Квитанция больше 8 МБ — сожми или сделай скриншот.',
     limit: n => `Не больше ${n} машинок в день на человека.`, ERR_MACHINE_OFF: 'Эта машинка сейчас не работает — выбери другую.',
-    off: (m, r) => `Машинка №${m} не работает${r ? ': ' + r : ''}`, ariaOff: 'не работает',
+    off: m => `Машинка №${m} не работает`, ariaOff: 'не работает',
     calTitle: 'Добавить в календарь', calApple: 'iPhone / Apple', calGoogle: 'Google Календарь',
     calNote: 'В календаре iPhone напомним за 10 минут до начала и когда стирка закончится. Google Календарь напомнит по своим настройкам.',
     evTitle: ms => `Стирка: ${ms}`, evMachines: ms => (ms.length > 1 ? 'машинки №' : 'машинка №') + ms.join(', №'),
@@ -256,7 +255,7 @@ const I18N = {
     installHide: 'Скрыть',
     adminLink: 'Администратору', adminTitle: 'Вход для администратора', adminPass: 'Пароль', adminLogin: 'Войти',
     adminPanel: 'Машинки', adminHint: 'Сними галочку, если машинка не работает: на неё нельзя будет записаться ни на один день, пока снова не включишь.',
-    works: 'работает', reasonPh: 'Что сломалось?', save: 'Сохранить', saved: 'Сохранено', logout: 'Выйти',
+    works: 'работает', save: 'Сохранить', saved: 'Сохранено', logout: 'Выйти',
     ERR_ADMIN_PASSWORD: 'Неверный пароль.', ERR_ADMIN_LOCKED: 'Слишком много попыток. Попробуй через 15 минут.', ERR_ADMIN_OFF: 'Админка не настроена.',
   },
   en: {
@@ -279,7 +278,7 @@ const I18N = {
     ERR_EMPTY: 'Pick at least one cell.', ERR_NOT_MINE: 'A booking can only be cancelled from the phone it was made on.',
     ERR_FILE_SIZE: 'The receipt is over 8 MB — compress it or take a screenshot.',
     limit: n => `Up to ${n} machines per day per person.`, ERR_MACHINE_OFF: 'This machine is out of order — pick another one.',
-    off: (m, r) => `Machine #${m} is out of order${r ? ': ' + r : ''}`, ariaOff: 'out of order',
+    off: m => `Machine #${m} is out of order`, ariaOff: 'out of order',
     calTitle: 'Add to calendar', calApple: 'iPhone / Apple', calGoogle: 'Google Calendar',
     calNote: 'In the iPhone calendar you’ll get a reminder 10 minutes before and when the wash ends. Google Calendar uses its own notification settings.',
     evTitle: ms => `Laundry: ${ms}`, evMachines: ms => (ms.length > 1 ? 'machines #' : 'machine #') + ms.join(', #'),
@@ -291,7 +290,7 @@ const I18N = {
     installHide: 'Hide',
     adminLink: 'For the administrator', adminTitle: 'Administrator login', adminPass: 'Password', adminLogin: 'Log in',
     adminPanel: 'Machines', adminHint: 'Untick a machine that is out of order: nobody can book it on any day until you turn it back on.',
-    works: 'working', reasonPh: 'What’s wrong?', save: 'Save', saved: 'Saved', logout: 'Log out',
+    works: 'working', save: 'Save', saved: 'Saved', logout: 'Log out',
     ERR_ADMIN_PASSWORD: 'Wrong password.', ERR_ADMIN_LOCKED: 'Too many attempts. Try again in 15 minutes.', ERR_ADMIN_OFF: 'The admin panel is not set up.',
   },
 };
@@ -350,9 +349,8 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const key = (date, slot, m) => date + '#' + slot + '#' + m;
 const toDate = s => { const [d, m, y] = s.split('.'); return new Date(+y, +m - 1, +d); };
 const isClosed = (date, slot) => date === state.today && state.closed.includes(slot);
-// Машинка выключена админом (причина может быть пустой строкой)
+// Машинка выключена админом
 const isOff = m => !!state.disabled && Object.prototype.hasOwnProperty.call(state.disabled, String(m));
-const offReason = m => (state.disabled && state.disabled[String(m)]) || '';
 function dayLabel(date) {
   if (date === state.today) return T().today;
   if (date === state.days[1]) return T().tomorrow;
@@ -401,7 +399,7 @@ function renderGrid() {
 
   // неработающие машинки — плашкой над сеткой
   const offList = [];
-  for (let mc = 1; mc <= state.machines; mc++) if (isOff(mc)) offList.push(T().off(mc, offReason(mc)));
+  for (let mc = 1; mc <= state.machines; mc++) if (isOff(mc)) offList.push(T().off(mc));
   $('notice').innerHTML = '';
   offList.forEach(text => { const n = document.createElement('div'); n.className = 'notice'; n.textContent = text; $('notice').appendChild(n); });
 
@@ -448,7 +446,7 @@ function onCell(k) {
   if (t) return openWho(t);
   const [d, s, m] = k.split('#');
   if (isClosed(d, s)) return;
-  if (isOff(m)) return toast(T().off(m, offReason(m)));
+  if (isOff(m)) return toast(T().off(m));
   if (selected.has(k)) selected.delete(k);
   else {
     // лимит на день: мои записи + уже выбранное (сервер проверяет ещё раз, в том числе по имени и комнате)
@@ -725,13 +723,10 @@ function openPanel() {
   for (let mc = 1; mc <= state.machines; mc++) {
     const row = document.createElement('div');
     row.className = 'mrow'; row.dataset.m = mc;
-    row.innerHTML = '<b></b><label><input type="checkbox"><span></span></label><input type="text" maxlength="120">';
+    row.innerHTML = '<b></b><label><input type="checkbox"><span></span></label>';
     row.querySelector('b').textContent = '№' + mc;
     row.querySelector('span').textContent = T().works;
-    const cb = row.querySelector('input[type=checkbox]'), reason = row.querySelector('input[type=text]');
-    reason.placeholder = T().reasonPh;
-    cb.checked = !isOff(mc); reason.value = offReason(mc); reason.disabled = cb.checked;
-    cb.onchange = () => { reason.disabled = cb.checked; if (!cb.checked) reason.focus(); };
+    row.querySelector('input').checked = !isOff(mc);
     box.appendChild(row);
   }
   $('panelErr').textContent = '';
@@ -740,7 +735,7 @@ function openPanel() {
 $('panelSave').onclick = async () => {
   const machines = {};
   $('machineRows').querySelectorAll('.mrow').forEach(r => {
-    if (!r.querySelector('input[type=checkbox]').checked) machines[r.dataset.m] = r.querySelector('input[type=text]').value.trim();
+    if (!r.querySelector('input[type=checkbox]').checked) machines[r.dataset.m] = '';
   });
   const btn = $('panelSave'); btn.disabled = true;
   try {
