@@ -177,11 +177,20 @@
 </div></div>
 
 <div class="sheet-bg" id="doneBg"><div class="sheet">
-  <h2 data-i18n="done">Готово, записано ✓</h2>
+  <h2 id="doneTitle" data-i18n="done">Готово, записано ✓</h2>
   <div class="chips" id="doneChips"></div>
   <div class="cal" id="doneCal"></div>
   <div class="actions">
     <button class="btn ghost" id="doneClose" data-i18n="close">Закрыть</button>
+  </div>
+</div></div>
+
+<div class="sheet-bg" id="safariBg"><div class="sheet">
+  <h2 data-i18n="safariTitle">Открой в Safari</h2>
+  <div class="sub" data-i18n="safariText">Встроенный браузер не умеет добавлять события в календарь iPhone.</div>
+  <div class="actions">
+    <button class="btn ghost" id="safariClose" data-i18n="close">Закрыть</button>
+    <button class="btn" id="safariCopy" data-i18n="copyLink">Скопировать ссылку</button>
   </div>
 </div></div>
 
@@ -253,6 +262,9 @@ const I18N = {
     installAndroid: 'Добавь сайт на главный экран: в Chrome открой меню ⋮ и выбери «Добавить на главный экран».',
     installBtn: 'Добавить на главный экран', installInApp: 'Если страница открыта внутри Telegram или ВК, сначала открой её в браузере.',
     installHide: 'Скрыть',
+    safariTitle: 'Открой в Safari', yourWash: 'Твоя стирка',
+    safariText: 'Telegram и другие приложения не умеют добавлять события в календарь iPhone. Нажми ⋯ или значок компаса и выбери «Открыть в Safari» — или скопируй ссылку и вставь её в Safari: там сразу появится кнопка календаря.',
+    copyLink: 'Скопировать ссылку', copied: 'Ссылка скопирована — вставь её в Safari',
     adminLink: 'Администратору', adminTitle: 'Вход для администратора', adminPass: 'Пароль', adminLogin: 'Войти',
     adminPanel: 'Машинки', adminHint: 'Сними галочку, если машинка не работает: на неё нельзя будет записаться ни на один день, пока снова не включишь.',
     works: 'работает', save: 'Сохранить', saved: 'Сохранено', logout: 'Выйти',
@@ -288,6 +300,9 @@ const I18N = {
     installAndroid: 'Add this site to your home screen: in Chrome open the ⋮ menu and choose “Add to Home screen”.',
     installBtn: 'Add to home screen', installInApp: 'If the page is open inside Telegram or VK, open it in your browser first.',
     installHide: 'Hide',
+    safariTitle: 'Open in Safari', yourWash: 'Your laundry',
+    safariText: 'Telegram and other apps can’t add events to the iPhone calendar. Tap ⋯ or the compass icon and choose “Open in Safari”, or copy the link and paste it into Safari — the calendar button will be there.',
+    copyLink: 'Copy link', copied: 'Link copied — paste it into Safari',
     adminLink: 'For the administrator', adminTitle: 'Administrator login', adminPass: 'Password', adminLogin: 'Log in',
     adminPanel: 'Machines', adminHint: 'Untick a machine that is out of order: nobody can book it on any day until you turn it back on.',
     works: 'working', save: 'Save', saved: 'Saved', logout: 'Log out',
@@ -510,6 +525,7 @@ $('doBook').onclick = async () => {
       selected.clear(); $('receipt').value = '';
       $('confirmBg').classList.remove('open');
       // экран «Готово» с кнопками календаря
+      $('doneTitle').textContent = T().done;
       $('doneChips').innerHTML = '';
       booked.forEach(c => { const s = document.createElement('span'); s.className = 'chip'; s.textContent = `${dayLabel(c.date)}, ${c.slot} · ${T().machine(c.machine)}`; $('doneChips').appendChild(s); });
       renderCal($('doneCal'), groupEvents(booked));
@@ -650,7 +666,8 @@ function renderCal(el, events) {
   const title = document.createElement('div'); title.className = 'sub'; title.textContent = T().calTitle; el.appendChild(title);
   const row = document.createElement('div'); row.className = 'row';
   const apple = document.createElement('button');
-  apple.className = 'btn ghost'; apple.textContent = T().calApple; apple.onclick = () => downloadICS(events);
+  apple.className = 'btn ghost'; apple.textContent = T().calApple;
+  apple.onclick = () => (iosInApp() ? openInSafari(events) : downloadICS(events));
   row.appendChild(apple);
   events.forEach(e => {
     const a = document.createElement('a');
@@ -662,6 +679,57 @@ function renderCal(el, events) {
   const note = document.createElement('div'); note.className = 'hint'; note.textContent = T().calNote; el.appendChild(note);
 }
 $('doneClose').onclick = () => $('doneBg').classList.remove('open');
+
+// Встроенные браузеры приложений на iPhone (Telegram, ВК, Instagram) не открывают .ics.
+// Признак: у настоящего Safari есть navigator.standalone, у встроенных WebView — нет.
+function iosInApp() {
+  const ua = navigator.userAgent || '';
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  return ios && (navigator.standalone === undefined || typeof window.TelegramWebviewProxy !== 'undefined');
+}
+// Стирки едут в Safari прямо в ссылке: ?ics=<base64url JSON [[дата, слот, [машинки]], …]>
+function icsLink(events) {
+  const json = JSON.stringify(events.map(e => [e.date, e.slot, e.machines]));
+  const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return SITE_URL + '?ics=' + b64 + '&lang=' + lang;
+}
+function openInSafari(events) {
+  const url = icsLink(events);
+  $('safariCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(url); toast(T().copied); }
+    catch (e) { window.prompt(T().copyLink, url); }
+  };
+  let left = false;
+  const onHide = () => { if (document.hidden) left = true; };
+  document.addEventListener('visibilitychange', onHide);
+  location.href = 'x-safari-' + url; // iOS 17+: открывает ссылку в Safari
+  // Если Safari не открылся (старый iOS или запрет приложения) — показываем инструкцию
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', onHide);
+    if (!left) $('safariBg').classList.add('open');
+  }, 1500);
+}
+$('safariClose').onclick = () => $('safariBg').classList.remove('open');
+// Пришли из встроенного браузера с ?ics=… — сразу показываем кнопки календаря
+function handleIcsParam() {
+  const q = new URLSearchParams(location.search), raw = q.get('ics');
+  if (!raw || !state) return;
+  history.replaceState(null, '', location.pathname);
+  let events = [];
+  try {
+    const json = decodeURIComponent(escape(atob(raw.replace(/-/g, '+').replace(/_/g, '/'))));
+    events = JSON.parse(json)
+      .filter(x => Array.isArray(x) && /^\d\d\.\d\d\.\d{4}$/.test(x[0]) && state.slots.includes(x[1]) && Array.isArray(x[2]))
+      .map(x => ({ date: x[0], slot: x[1], machines: x[2].map(Number).filter(m => m >= 1 && m <= state.machines) }))
+      .filter(e => e.machines.length);
+  } catch (e) { return; }
+  if (!events.length) return;
+  $('doneTitle').textContent = T().yourWash;
+  $('doneChips').innerHTML = '';
+  events.forEach(e => { const s = document.createElement('span'); s.className = 'chip'; s.textContent = `${e.date.slice(0, 5)}, ${e.slot} · ${T().evMachines(e.machines)}`; $('doneChips').appendChild(s); });
+  renderCal($('doneCal'), events);
+  $('doneBg').classList.add('open');
+}
 
 // ---------- «Добавить на экран „Домой“» ----------
 let installEvt = null; // Android Chrome отдаёт системный диалог установки
@@ -752,9 +820,12 @@ document.querySelectorAll('.sheet-bg').forEach(bg => bg.addEventListener('click'
 
 // ---------- загрузка и автообновление ----------
 async function refresh() {
-  try { state = await call('getState', deviceId); renderGrid(); }
+  try { state = await call('getState', deviceId); renderGrid(); handleIcsParam(); }
   catch (e) { if (!state) $('grid').textContent = T().loadFail + errText(e); }
 }
+// ?lang=… из ссылки «Открыть в Safari» — язык как у того, кто её открыл
+const qLang = new URLSearchParams(location.search).get('lang');
+if (qLang === 'ru' || qLang === 'en') { lang = qLang; store.set('lang', lang); }
 applyLang();
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 30000);
