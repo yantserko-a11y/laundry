@@ -246,9 +246,9 @@ const I18N = {
     limit: n => `Не больше ${n} машинок в день на человека.`, ERR_MACHINE_OFF: 'Эта машинка сейчас не работает — выбери другую.',
     off: (m, r) => `Машинка №${m} не работает${r ? ': ' + r : ''}`, ariaOff: 'не работает',
     calTitle: 'Добавить в календарь', calApple: 'iPhone / Apple', calGoogle: 'Google Календарь',
-    calNote: 'В календаре iPhone напомним за 30 минут до начала и когда стирка закончится. Google Календарь напомнит по своим настройкам.',
+    calNote: 'В календаре iPhone напомним за 10 минут до начала и когда стирка закончится. Google Календарь напомнит по своим настройкам.',
     evTitle: ms => `Стирка: ${ms}`, evMachines: ms => (ms.length > 1 ? 'машинки №' : 'машинка №') + ms.join(', №'),
-    alarmBefore: 'Через 30 минут стирка', alarmEnd: 'Стирка закончилась — пора забрать вещи',
+    alarmBefore: 'Через 10 минут стирка', alarmEnd: 'Стирка закончилась — пора забрать вещи',
     installTitle: 'Стирка в одно касание',
     installIOS: 'Добавь сайт на экран «Домой»: в Safari нажми «Поделиться» внизу, потом «На экран „Домой“».',
     installAndroid: 'Добавь сайт на главный экран: в Chrome открой меню ⋮ и выбери «Добавить на главный экран».',
@@ -281,9 +281,9 @@ const I18N = {
     limit: n => `Up to ${n} machines per day per person.`, ERR_MACHINE_OFF: 'This machine is out of order — pick another one.',
     off: (m, r) => `Machine #${m} is out of order${r ? ': ' + r : ''}`, ariaOff: 'out of order',
     calTitle: 'Add to calendar', calApple: 'iPhone / Apple', calGoogle: 'Google Calendar',
-    calNote: 'In the iPhone calendar you’ll get a reminder 30 minutes before and when the wash ends. Google Calendar uses its own notification settings.',
+    calNote: 'In the iPhone calendar you’ll get a reminder 10 minutes before and when the wash ends. Google Calendar uses its own notification settings.',
     evTitle: ms => `Laundry: ${ms}`, evMachines: ms => (ms.length > 1 ? 'machines #' : 'machine #') + ms.join(', #'),
-    alarmBefore: 'Laundry in 30 minutes', alarmEnd: 'Your wash is done — time to collect your clothes',
+    alarmBefore: 'Laundry in 10 minutes', alarmEnd: 'Your wash is done — time to collect your clothes',
     installTitle: 'Laundry in one tap',
     installIOS: 'Add this site to your Home Screen: in Safari tap “Share” at the bottom, then “Add to Home Screen”.',
     installAndroid: 'Add this site to your home screen: in Chrome open the ⋮ menu and choose “Add to Home screen”.',
@@ -614,8 +614,8 @@ function buildICS(events) {
       `UID:${e.date.replace(/\./g, '')}-${e.slot.replace(/[:-]/g, '')}-${e.machines.join('_')}-${deviceId.slice(0, 8)}@laundry`,
       `DTSTAMP:${stamp}`, `DTSTART:${icsDate(s)}`, `DTEND:${icsDate(en)}`,
       `SUMMARY:${icsText(evTitle(e))}`, `DESCRIPTION:${icsText(SITE_URL)}`,
-      // напоминания: за 30 минут до начала и в момент окончания
-      'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT30M', `DESCRIPTION:${icsText(T().alarmBefore)}`, 'END:VALARM',
+      // напоминания: за 10 минут до начала и в момент окончания
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT10M', `DESCRIPTION:${icsText(T().alarmBefore)}`, 'END:VALARM',
       'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER;RELATED=END:PT0M', `DESCRIPTION:${icsText(T().alarmEnd)}`, 'END:VALARM',
       'END:VEVENT');
   });
