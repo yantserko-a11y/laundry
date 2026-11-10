@@ -5,6 +5,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Запись на стирку</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Стирка">
+<meta name="theme-color" content="#2563eb">
 <style>
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #16181d; --muted: #6b7280; --line: #e5e7eb;
@@ -78,6 +83,26 @@
   .who-contact { margin-top: 14px; font-size: 15px; word-break: break-word; }
   .who-contact .sub { display: block; font-size: 12px; margin-bottom: 2px; }
   .who-contact a { color: var(--accent); }
+  td button.off { background: transparent; border: 1px dashed var(--free-line); color: var(--danger); font-size: 14px; }
+  th.off { color: var(--danger); }
+  .notice { background: #fef3c7; color: #92400e; border-radius: 10px; padding: 8px 10px; font-size: 13px; margin-bottom: 10px; }
+  @media (prefers-color-scheme: dark) { .notice { background: #3a2a0a; color: #fcd34d; } }
+  .install { position: relative; padding-right: 40px; font-size: 14px; }
+  .install b { display: block; margin-bottom: 4px; }
+  .install .x { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+  .install .btn { margin-top: 10px; padding: 9px 14px; font-size: 14px; }
+  .cal { margin-top: 14px; }
+  .cal .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .cal .btn { padding: 10px 14px; font-size: 14px; }
+  a.btn { display: inline-block; text-decoration: none; }
+  .foot { text-align: center; margin-top: 18px; font-size: 13px; }
+  .foot .link { color: var(--muted); }
+  .mrow { display: grid; grid-template-columns: 54px 110px 1fr; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .mrow b { font-size: 15px; }
+  .mrow label { margin: 0; display: flex; gap: 6px; align-items: center; color: var(--text); font-size: 14px; }
+  .mrow input[type=checkbox] { width: 18px; height: 18px; margin: 0; }
+  .mrow input[type=text] { padding: 8px 10px; }
+  input[type=password] { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--free-line); border-radius: 10px; background: var(--card); color: var(--text); }
 </style>
 </head>
 <body>
@@ -90,9 +115,12 @@
   </div>
   <div class="sub" data-i18n="subtitle">Запись открыта до ближайшего воскресенья включительно</div>
 
+  <div class="card install" id="install" hidden></div>
+
   <div class="card" id="profile"></div>
 
   <div class="card">
+    <div id="notice"></div>
     <div class="days" id="days"></div>
     <div id="grid" class="loading" data-i18n="loading">Загружаю слоты…</div>
     <div class="legend">
@@ -103,6 +131,7 @@
     </div>
     <div class="hint" data-i18n="hint">Нажми на занятую ячейку — покажем, кто записан.</div>
   </div>
+  <div class="foot"><button class="link" id="adminLink" data-i18n="adminLink">Администратору</button></div>
 </div>
 
 <div class="bar"><div class="in">
@@ -128,8 +157,9 @@
 </div></div>
 
 <div class="sheet-bg" id="undoBg"><div class="sheet">
-  <h2 data-i18n="undoTitle">Отменить запись?</h2>
+  <h2 data-i18n="undoTitle">Моя запись</h2>
   <div id="undoText" class="sub"></div>
+  <div class="cal" id="undoCal"></div>
   <div class="err" id="undoErr"></div>
   <div class="actions">
     <button class="btn ghost" id="undoBack" data-i18n="keep">Оставить</button>
@@ -144,6 +174,37 @@
   <div id="whoContact" class="who-contact"></div>
   <div class="actions">
     <button class="btn ghost" id="whoClose" data-i18n="close">Закрыть</button>
+  </div>
+</div></div>
+
+<div class="sheet-bg" id="doneBg"><div class="sheet">
+  <h2 data-i18n="done">Готово, записано ✓</h2>
+  <div class="chips" id="doneChips"></div>
+  <div class="cal" id="doneCal"></div>
+  <div class="actions">
+    <button class="btn ghost" id="doneClose" data-i18n="close">Закрыть</button>
+  </div>
+</div></div>
+
+<div class="sheet-bg" id="adminBg"><div class="sheet">
+  <h2 data-i18n="adminTitle">Вход для администратора</h2>
+  <label for="adminPass" data-i18n="adminPass">Пароль</label>
+  <input type="password" id="adminPass" autocomplete="current-password">
+  <div class="err" id="adminErr"></div>
+  <div class="actions">
+    <button class="btn ghost" id="adminCancel" data-i18n="back">Назад</button>
+    <button class="btn" id="adminLogin" data-i18n="adminLogin">Войти</button>
+  </div>
+</div></div>
+
+<div class="sheet-bg" id="panelBg"><div class="sheet">
+  <h2 data-i18n="adminPanel">Машинки</h2>
+  <div class="sub" data-i18n="adminHint">Сними галочку, если машинка не работает.</div>
+  <div id="machineRows" style="margin-top:6px"></div>
+  <div class="err" id="panelErr"></div>
+  <div class="actions">
+    <button class="btn ghost" id="adminLogout" data-i18n="logout">Выйти</button>
+    <button class="btn" id="panelSave" data-i18n="save">Сохранить</button>
   </div>
 </div></div>
 
@@ -168,7 +229,7 @@ const I18N = {
     lgFree: 'свободно', lgSel: 'выбрано', lgMine: 'моё — нажми, чтобы отменить', lgTaken: 'занято', hint: 'Нажми на занятую ячейку — покажем, кто записан и как с ним связаться.',
     book: 'Записаться', booking: 'Записываю…', confirmTitle: 'Подтвердить запись', receipt: 'Квитанция об оплате',
     consent: 'Выражаю согласие, что за предоставление заведомо подложных документов и информации несу дисциплинарную ответственность',
-    back: 'Назад', undoTitle: 'Отменить запись?', keep: 'Оставить', cancel: 'Отменить',
+    back: 'Назад', undoTitle: 'Моя запись', keep: 'Закрыть', cancel: 'Отменить запись',
     name: 'Фамилия и имя', namePh: 'Иванова Мария', room: 'Комната',
     contact: 'Контакт для связи — по желанию', contactPh: '@telegram и/или vk.com/…',
     contactHint: 'По желанию оставь ВК или Telegram (можно оба), чтобы с тобой могли быстро связаться, если возникнут проблемы. Контакт увидят те, кто нажмёт на твою запись.',
@@ -182,13 +243,28 @@ const I18N = {
     ERR_PROFILE: 'Укажи фамилию, имя и номер комнаты.', ERR_CONSENT: 'Нужно согласие об ответственности за подложные документы.',
     ERR_EMPTY: 'Выбери хотя бы одну ячейку.', ERR_NOT_MINE: 'Отменить запись можно только с того телефона, с которого записывались.',
     ERR_FILE_SIZE: 'Квитанция больше 8 МБ — сожми или сделай скриншот.',
+    limit: n => `Не больше ${n} машинок в день на человека.`, ERR_MACHINE_OFF: 'Эта машинка сейчас не работает — выбери другую.',
+    off: (m, r) => `Машинка №${m} не работает${r ? ': ' + r : ''}`, ariaOff: 'не работает',
+    calTitle: 'Добавить в календарь', calApple: 'iPhone / Apple', calGoogle: 'Google Календарь',
+    calNote: 'В календаре iPhone напомним за 30 минут до начала и когда стирка закончится. Google Календарь напомнит по своим настройкам.',
+    evTitle: ms => `Стирка: ${ms}`, evMachines: ms => (ms.length > 1 ? 'машинки №' : 'машинка №') + ms.join(', №'),
+    alarmBefore: 'Через 30 минут стирка', alarmEnd: 'Стирка закончилась — пора забрать вещи',
+    installTitle: 'Стирка в одно касание',
+    installIOS: 'Добавь сайт на экран «Домой»: в Safari нажми «Поделиться» внизу, потом «На экран „Домой“».',
+    installAndroid: 'Добавь сайт на главный экран: в Chrome открой меню ⋮ и выбери «Добавить на главный экран».',
+    installBtn: 'Добавить на главный экран', installInApp: 'Если страница открыта внутри Telegram или ВК, сначала открой её в браузере.',
+    installHide: 'Скрыть',
+    adminLink: 'Администратору', adminTitle: 'Вход для администратора', adminPass: 'Пароль', adminLogin: 'Войти',
+    adminPanel: 'Машинки', adminHint: 'Сними галочку, если машинка не работает: на неё нельзя будет записаться ни на один день, пока снова не включишь.',
+    works: 'работает', reasonPh: 'Что сломалось?', save: 'Сохранить', saved: 'Сохранено', logout: 'Выйти',
+    ERR_ADMIN_PASSWORD: 'Неверный пароль.', ERR_ADMIN_LOCKED: 'Слишком много попыток. Попробуй через 15 минут.', ERR_ADMIN_OFF: 'Админка не настроена.',
   },
   en: {
     title: 'Laundry booking', subtitle: 'Booking is open up to and including the coming Sunday', loading: 'Loading slots…',
     lgFree: 'free', lgSel: 'selected', lgMine: 'mine — tap to cancel', lgTaken: 'taken', hint: 'Tap a taken cell to see who booked it and how to reach them.',
     book: 'Book', booking: 'Booking…', confirmTitle: 'Confirm booking', receipt: 'Payment receipt',
     consent: 'I agree that I am responsible for the provision of knowingly forged documents and information',
-    back: 'Back', undoTitle: 'Cancel booking?', keep: 'Keep', cancel: 'Cancel',
+    back: 'Back', undoTitle: 'My booking', keep: 'Close', cancel: 'Cancel booking',
     name: 'Last name and first name', namePh: 'Ivanova Maria', room: 'Room',
     contact: 'Contact — optional', contactPh: '@telegram and/or vk.com/…',
     contactHint: 'Optionally leave your VK or Telegram (or both) so people can reach you quickly if something goes wrong. Anyone who taps your booking will see it.',
@@ -202,12 +278,31 @@ const I18N = {
     ERR_PROFILE: 'Enter your last name, first name and room number.', ERR_CONSENT: 'Consent about forged documents is required.',
     ERR_EMPTY: 'Pick at least one cell.', ERR_NOT_MINE: 'A booking can only be cancelled from the phone it was made on.',
     ERR_FILE_SIZE: 'The receipt is over 8 MB — compress it or take a screenshot.',
+    limit: n => `Up to ${n} machines per day per person.`, ERR_MACHINE_OFF: 'This machine is out of order — pick another one.',
+    off: (m, r) => `Machine #${m} is out of order${r ? ': ' + r : ''}`, ariaOff: 'out of order',
+    calTitle: 'Add to calendar', calApple: 'iPhone / Apple', calGoogle: 'Google Calendar',
+    calNote: 'In the iPhone calendar you’ll get a reminder 30 minutes before and when the wash ends. Google Calendar uses its own notification settings.',
+    evTitle: ms => `Laundry: ${ms}`, evMachines: ms => (ms.length > 1 ? 'machines #' : 'machine #') + ms.join(', #'),
+    alarmBefore: 'Laundry in 30 minutes', alarmEnd: 'Your wash is done — time to collect your clothes',
+    installTitle: 'Laundry in one tap',
+    installIOS: 'Add this site to your Home Screen: in Safari tap “Share” at the bottom, then “Add to Home Screen”.',
+    installAndroid: 'Add this site to your home screen: in Chrome open the ⋮ menu and choose “Add to Home screen”.',
+    installBtn: 'Add to home screen', installInApp: 'If the page is open inside Telegram or VK, open it in your browser first.',
+    installHide: 'Hide',
+    adminLink: 'For the administrator', adminTitle: 'Administrator login', adminPass: 'Password', adminLogin: 'Log in',
+    adminPanel: 'Machines', adminHint: 'Untick a machine that is out of order: nobody can book it on any day until you turn it back on.',
+    works: 'working', reasonPh: 'What’s wrong?', save: 'Save', saved: 'Saved', logout: 'Log out',
+    ERR_ADMIN_PASSWORD: 'Wrong password.', ERR_ADMIN_LOCKED: 'Too many attempts. Try again in 15 minutes.', ERR_ADMIN_OFF: 'The admin panel is not set up.',
   },
 };
 let lang = store.get('lang', null) || ((navigator.language || '').toLowerCase().startsWith('ru') ? 'ru' : 'en');
 const T = () => I18N[lang];
 // Ошибки бэкенда приходят кодами ERR_*, переводим их; остальное показываем как есть
-const errText = e => { const m = String(e && e.message || e).match(/ERR_[A-Z_]+/); return m && T()[m[0]] ? T()[m[0]] : String(e && e.message || e); };
+const errText = e => {
+  const m = String(e && e.message || e).match(/ERR_[A-Z_]+/);
+  if (m && m[0] === 'ERR_LIMIT') return T().limit(state ? state.maxPerDay : 6);
+  return m && T()[m[0]] ? T()[m[0]] : String(e && e.message || e);
+};
 
 function applyLang() {
   document.documentElement.lang = lang;
@@ -215,6 +310,7 @@ function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T()[el.dataset.i18n]; });
   document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
   renderProfile();
+  renderInstall();
   if (state) renderGrid();
 }
 document.querySelectorAll('.lang button').forEach(b => b.onclick = () => { lang = b.dataset.lang; store.set('lang', lang); applyLang(); });
@@ -232,7 +328,9 @@ async function call(fn, ...args) {
   if (fn === 'getState') {
     res = await fetch(`${API_URL}?action=state&device=${encodeURIComponent(args[0])}&t=${Date.now()}`, { credentials: 'omit' });
   } else {
-    const body = fn === 'book' ? { action: 'book', ...args[0] } : { action: 'cancel', deviceId: args[0], id: args[1] };
+    const body = fn === 'book' ? { action: 'book', ...args[0] }
+      : fn === 'adminApi' ? { action: 'admin', ...args[0] }
+      : { action: 'cancel', deviceId: args[0], id: args[1] };
     res = await fetch(API_URL, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
   }
   const data = await res.json();
@@ -252,6 +350,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const key = (date, slot, m) => date + '#' + slot + '#' + m;
 const toDate = s => { const [d, m, y] = s.split('.'); return new Date(+y, +m - 1, +d); };
 const isClosed = (date, slot) => date === state.today && state.closed.includes(slot);
+// Машинка выключена админом (причина может быть пустой строкой)
+const isOff = m => !!state.disabled && Object.prototype.hasOwnProperty.call(state.disabled, String(m));
+const offReason = m => (state.disabled && state.disabled[String(m)]) || '';
 function dayLabel(date) {
   if (date === state.today) return T().today;
   if (date === state.days[1]) return T().tomorrow;
@@ -296,7 +397,13 @@ function renderGrid() {
   const taken = {};
   state.taken.forEach(t => taken[key(t.date, t.slot, t.machine)] = t);
   // выбранное, которое успели занять, которое уже прошло или день которого закрылся, снимаем
-  [...selected].forEach(k => { const [d, s] = k.split('#'); if (taken[k] || !state.days.includes(d) || isClosed(d, s)) selected.delete(k); });
+  [...selected].forEach(k => { const [d, s, m] = k.split('#'); if (taken[k] || !state.days.includes(d) || isClosed(d, s) || isOff(m)) selected.delete(k); });
+
+  // неработающие машинки — плашкой над сеткой
+  const offList = [];
+  for (let mc = 1; mc <= state.machines; mc++) if (isOff(mc)) offList.push(T().off(mc, offReason(mc)));
+  $('notice').innerHTML = '';
+  offList.forEach(text => { const n = document.createElement('div'); n.className = 'notice'; n.textContent = text; $('notice').appendChild(n); });
 
   // вкладки дней: синяя точка — есть выбранное, зелёная — есть мои записи
   $('days').innerHTML = state.days.map(d => {
@@ -310,7 +417,7 @@ function renderGrid() {
   $('days').querySelectorAll('.day').forEach(b => b.onclick = () => { day = b.dataset.d; renderGrid(); });
 
   let html = '<table><thead><tr><th class="slot"></th>';
-  for (let mc = 1; mc <= state.machines; mc++) html += `<th>№${mc}</th>`;
+  for (let mc = 1; mc <= state.machines; mc++) html += isOff(mc) ? `<th class="off">№${mc} ✕</th>` : `<th>№${mc}</th>`;
   html += '</tr></thead><tbody>';
   state.slots.forEach(slot => {
     const [a, b] = slot.split('-');
@@ -322,6 +429,7 @@ function renderGrid() {
       if (t && t.mine) { cls = 'mine'; label = T().mine; aria += ', ' + T().ariaMine; }
       else if (t) { cls = 'taken'; title = esc(t.name); aria += ', ' + T().ariaTaken + ': ' + title; }
       else if (closed) { cls = 'closed'; aria += ', ' + T().ariaPast; }
+      else if (isOff(mc)) { cls = 'off'; label = '✕'; aria += ', ' + T().ariaOff; }
       else if (selected.has(k)) { cls = 'sel'; label = '✓'; aria += ', ' + T().ariaSel; }
       html += `<td><button class="${cls}" data-k="${k}" aria-label="${aria}"${title ? ` title="${title}"` : ''}>${label}</button></td>`;
     }
@@ -338,9 +446,17 @@ function onCell(k) {
   if (t && t.mine) return openUndo(t);
   // Чужая запись: показываем, кто записан
   if (t) return openWho(t);
-  const [d, s] = k.split('#');
+  const [d, s, m] = k.split('#');
   if (isClosed(d, s)) return;
-  selected.has(k) ? selected.delete(k) : selected.add(k);
+  if (isOff(m)) return toast(T().off(m, offReason(m)));
+  if (selected.has(k)) selected.delete(k);
+  else {
+    // лимит на день: мои записи + уже выбранное (сервер проверяет ещё раз, в том числе по имени и комнате)
+    const mineThatDay = state.taken.filter(x => x.date === d && x.mine).length;
+    const selThatDay = [...selected].filter(x => x.startsWith(d + '#')).length;
+    if (mineThatDay + selThatDay >= state.maxPerDay) return toast(T().limit(state.maxPerDay));
+    selected.add(k);
+  }
   renderGrid();
 }
 
@@ -390,11 +506,16 @@ $('doBook').onclick = async () => {
   try {
     const receipt = await readFile($('receipt').files[0]);
     const res = await call('book', { deviceId, name: profile.name, room: profile.room, contact: profile.contact || '', consent: true, cells: sortedCells(), receipt });
+    const booked = sortedCells();
     state = res.state;
     if (res.ok) {
       selected.clear(); $('receipt').value = '';
       $('confirmBg').classList.remove('open');
-      toast(T().done);
+      // экран «Готово» с кнопками календаря
+      $('doneChips').innerHTML = '';
+      booked.forEach(c => { const s = document.createElement('span'); s.className = 'chip'; s.textContent = `${dayLabel(c.date)}, ${c.slot} · ${T().machine(c.machine)}`; $('doneChips').appendChild(s); });
+      renderCal($('doneCal'), groupEvents(booked));
+      $('doneBg').classList.add('open');
     } else {
       $('confirmBg').classList.remove('open');
       toast(T().conflict(res.conflicts.map(c => `${dayLabel(c.date)} ${c.slot} ${T().machine(c.machine)}`).join(', ')));
@@ -411,6 +532,7 @@ $('doBook').onclick = async () => {
 function openUndo(t) {
   undoId = t.id;
   $('undoText').textContent = `${dayLabel(t.date)}, ${t.slot}, ${T().machine(t.machine)}`;
+  renderCal($('undoCal'), groupEvents([t]));
   $('undoErr').textContent = '';
   $('undoBg').classList.add('open');
 }
@@ -456,6 +578,180 @@ function openWho(t) {
   $('whoBg').classList.add('open');
 }
 $('whoClose').onclick = () => $('whoBg').classList.remove('open');
+
+// ---------- календарь ----------
+const SITE_URL = 'https://yantserko-a11y.github.io/laundry/';
+// Соседние машинки в одном слоте — одно событие
+function groupEvents(cells) {
+  const map = {};
+  cells.forEach(c => {
+    const k = c.date + '#' + c.slot;
+    (map[k] = map[k] || { date: c.date, slot: c.slot, machines: [] }).machines.push(Number(c.machine));
+  });
+  return Object.values(map).map(e => ({ ...e, machines: e.machines.sort((a, b) => a - b) }));
+}
+// Время слота в UTC: в Москве круглый год UTC+3
+function slotUTC(date, hhmm) {
+  const [d, m, y] = date.split('.').map(Number), [h, mi] = hhmm.split(':').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, h - 3, mi));
+}
+function eventTimes(e) {
+  const [a, b] = e.slot.split('-');
+  const start = slotUTC(e.date, a);
+  let end = slotUTC(e.date, b);
+  if (end <= start) end = new Date(end.getTime() + 864e5); // слот 22:00–00:00
+  return [start, end];
+}
+const icsDate = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const icsText = s => String(s).replace(/\\/g, '\\\\').replace(/[,;]/g, m => '\\' + m).replace(/\n/g, '\\n');
+const evTitle = e => T().evTitle(T().evMachines(e.machines));
+function buildICS(events) {
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//laundry//booking//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  const stamp = icsDate(new Date());
+  events.forEach(e => {
+    const [s, en] = eventTimes(e);
+    L.push('BEGIN:VEVENT',
+      `UID:${e.date.replace(/\./g, '')}-${e.slot.replace(/[:-]/g, '')}-${e.machines.join('_')}-${deviceId.slice(0, 8)}@laundry`,
+      `DTSTAMP:${stamp}`, `DTSTART:${icsDate(s)}`, `DTEND:${icsDate(en)}`,
+      `SUMMARY:${icsText(evTitle(e))}`, `DESCRIPTION:${icsText(SITE_URL)}`,
+      // напоминания: за 30 минут до начала и в момент окончания
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT30M', `DESCRIPTION:${icsText(T().alarmBefore)}`, 'END:VALARM',
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER;RELATED=END:PT0M', `DESCRIPTION:${icsText(T().alarmEnd)}`, 'END:VALARM',
+      'END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.map(icsFold).join('\r\n') + '\r\n';
+}
+// RFC 5545: строки длиннее 75 байт переносятся (кириллица — 2 байта на букву)
+function icsFold(line) {
+  const enc = new TextEncoder(), parts = [];
+  let cur = '', bytes = 0;
+  for (const ch of line) {
+    const b = enc.encode(ch).length;
+    if (bytes + b > (parts.length ? 74 : 75)) { parts.push(cur); cur = ''; bytes = 0; }
+    cur += ch; bytes += b;
+  }
+  parts.push(cur);
+  return parts.join('\r\n ');
+}
+function downloadICS(events) {
+  const url = URL.createObjectURL(new Blob([buildICS(events)], { type: 'text/calendar;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'stirka.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function googleLink(e) {
+  const [s, en] = eventTimes(e);
+  const p = new URLSearchParams({ action: 'TEMPLATE', text: evTitle(e), dates: icsDate(s) + '/' + icsDate(en), details: SITE_URL, ctz: 'Europe/Moscow' });
+  return 'https://calendar.google.com/calendar/render?' + p.toString();
+}
+function renderCal(el, events) {
+  el.innerHTML = '';
+  if (!events.length) return;
+  const title = document.createElement('div'); title.className = 'sub'; title.textContent = T().calTitle; el.appendChild(title);
+  const row = document.createElement('div'); row.className = 'row';
+  const apple = document.createElement('button');
+  apple.className = 'btn ghost'; apple.textContent = T().calApple; apple.onclick = () => downloadICS(events);
+  row.appendChild(apple);
+  events.forEach(e => {
+    const a = document.createElement('a');
+    a.className = 'btn ghost'; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.href = googleLink(e);
+    a.textContent = events.length > 1 ? `${T().calGoogle}: ${dayLabel(e.date)} ${e.slot.split('-')[0]}` : T().calGoogle;
+    row.appendChild(a);
+  });
+  el.appendChild(row);
+  const note = document.createElement('div'); note.className = 'hint'; note.textContent = T().calNote; el.appendChild(note);
+}
+$('doneClose').onclick = () => $('doneBg').classList.remove('open');
+
+// ---------- «Добавить на экран „Домой“» ----------
+let installEvt = null; // Android Chrome отдаёт системный диалог установки
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; renderInstall(); });
+function renderInstall() {
+  const el = $('install'), ua = navigator.userAgent || '';
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const inAppsScript = typeof google !== 'undefined' && google.script && google.script.host;
+  if (!(ios || android) || standalone || inAppsScript || store.get('installHidden', false)) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<b></b><div class="txt"></div><div class="hint"></div><button class="x">×</button>`;
+  el.querySelector('b').textContent = T().installTitle;
+  el.querySelector('.txt').textContent = ios ? T().installIOS : T().installAndroid;
+  el.querySelector('.hint').textContent = T().installInApp;
+  el.querySelector('.x').setAttribute('aria-label', T().installHide);
+  el.querySelector('.x').onclick = () => { store.set('installHidden', true); el.hidden = true; };
+  if (android && installEvt) {
+    const b = document.createElement('button');
+    b.className = 'btn'; b.textContent = T().installBtn;
+    b.onclick = async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; renderInstall(); };
+    el.insertBefore(b, el.querySelector('.hint'));
+  }
+}
+
+// ---------- админка ----------
+// Пароль живёт только до закрытия вкладки
+const adminPass = {
+  get() { try { return sessionStorage.getItem('laundry.admin'); } catch (e) { return null; } },
+  set(v) { try { v ? sessionStorage.setItem('laundry.admin', v) : sessionStorage.removeItem('laundry.admin'); } catch (e) {} },
+};
+$('adminLink').onclick = async () => {
+  if (!state) return;
+  const saved = adminPass.get();
+  if (saved) {
+    try { state.disabled = (await call('adminApi', { password: saved, op: 'login' })).disabled; return openPanel(); }
+    catch (e) { adminPass.set(null); }
+  }
+  $('adminPass').value = ''; $('adminErr').textContent = '';
+  $('adminBg').classList.add('open');
+  setTimeout(() => $('adminPass').focus(), 50);
+};
+$('adminCancel').onclick = () => $('adminBg').classList.remove('open');
+$('adminPass').onkeydown = e => { if (e.key === 'Enter') $('adminLogin').click(); };
+$('adminLogin').onclick = async () => {
+  const btn = $('adminLogin'); btn.disabled = true; $('adminErr').textContent = '';
+  try {
+    const r = await call('adminApi', { password: $('adminPass').value, op: 'login' });
+    adminPass.set($('adminPass').value);
+    state.disabled = r.disabled;
+    $('adminBg').classList.remove('open');
+    openPanel();
+  } catch (e) { $('adminErr').textContent = errText(e); }
+  finally { btn.disabled = false; }
+};
+function openPanel() {
+  const box = $('machineRows'); box.innerHTML = '';
+  for (let mc = 1; mc <= state.machines; mc++) {
+    const row = document.createElement('div');
+    row.className = 'mrow'; row.dataset.m = mc;
+    row.innerHTML = '<b></b><label><input type="checkbox"><span></span></label><input type="text" maxlength="120">';
+    row.querySelector('b').textContent = '№' + mc;
+    row.querySelector('span').textContent = T().works;
+    const cb = row.querySelector('input[type=checkbox]'), reason = row.querySelector('input[type=text]');
+    reason.placeholder = T().reasonPh;
+    cb.checked = !isOff(mc); reason.value = offReason(mc); reason.disabled = cb.checked;
+    cb.onchange = () => { reason.disabled = cb.checked; if (!cb.checked) reason.focus(); };
+    box.appendChild(row);
+  }
+  $('panelErr').textContent = '';
+  $('panelBg').classList.add('open');
+}
+$('panelSave').onclick = async () => {
+  const machines = {};
+  $('machineRows').querySelectorAll('.mrow').forEach(r => {
+    if (!r.querySelector('input[type=checkbox]').checked) machines[r.dataset.m] = r.querySelector('input[type=text]').value.trim();
+  });
+  const btn = $('panelSave'); btn.disabled = true;
+  try {
+    state.disabled = (await call('adminApi', { password: adminPass.get(), op: 'setMachines', machines })).disabled;
+    $('panelBg').classList.remove('open');
+    toast(T().saved);
+    renderGrid();
+  } catch (e) { $('panelErr').textContent = errText(e); }
+  finally { btn.disabled = false; }
+};
+$('adminLogout').onclick = () => { adminPass.set(null); $('panelBg').classList.remove('open'); };
 
 document.querySelectorAll('.sheet-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
 

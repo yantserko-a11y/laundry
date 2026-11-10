@@ -15,6 +15,9 @@ const MAX_RECEIPT_BYTES = 8 * 1024 * 1024;
 const HEADERS = ['ID', 'Создано', 'Дата', 'Время', 'Машинка', 'Фамилия и имя', 'Комната', 'Оплата, ₽', 'Квитанция', 'Статус', 'Устройство', 'Пачка', 'Контакт'];
 const COL = { id: 0, created: 1, date: 2, slot: 3, machine: 4, name: 5, room: 6, paid: 7, receipt: 8, status: 9, device: 10, batch: 11, contact: 12 };
 const MAX_CONTACT_LEN = 100;
+// Не больше стольких машинок в день на человека: 5–6 за раз можно, занять всю неделю — нет
+const MAX_PER_DAY = 6;
+const ADMIN_MAX_FAILS = 10; // неудачных входов в админку за 15 минут, потом пауза
 
 /**
  * GET без параметров — страница (запасной вариант), GET ?action=state&device=… — JSON для GitHub Pages.
@@ -37,6 +40,7 @@ function doPost(e) {
     const req = JSON.parse(e.postData.contents);
     if (req.action === 'book') return book(req);
     if (req.action === 'cancel') return cancel(req.deviceId, req.id);
+    if (req.action === 'admin') return adminApi(req);
     throw new Error('ERR_ACTION');
   });
 }
@@ -62,7 +66,10 @@ function getState(deviceId) {
     mine: r[COL.device] === device,
     id: r[COL.id],
   }));
-  return { today: days[0], days: days, slots: SLOTS, machines: MACHINES, price: PRICE, taken: taken, closed: closedSlots_() };
+  return {
+    today: days[0], days: days, slots: SLOTS, machines: MACHINES, price: PRICE, maxPerDay: MAX_PER_DAY,
+    taken: taken, closed: closedSlots_(), disabled: disabled_(),
+  };
 }
 
 /**
@@ -79,6 +86,8 @@ function book(req) {
   const days = days_();
   const cells = (req.cells || []).filter(c => days.indexOf(c.date) >= 0 && SLOTS.indexOf(c.slot) >= 0 && c.machine >= 1 && c.machine <= MACHINES);
   if (!cells.length) throw new Error('ERR_EMPTY');
+  const off = disabled_();
+  if (cells.some(c => Object.prototype.hasOwnProperty.call(off, String(c.machine)))) throw new Error('ERR_MACHINE_OFF');
   ensureTrigger_();
 
   let receiptUrl = '';
@@ -89,16 +98,24 @@ function book(req) {
   try {
     const today = days[0];
     const closed = closedSlots_();
-    const busy = {};
+    const device = hash_(req.deviceId);
+    const norm = v => String(v).trim().toLowerCase().replace(/\s+/g, ' ');
+    // «Тот же человек» — то же устройство или та же пара «имя + комната»
+    const isSamePerson = r => r[COL.device] === device || (norm(r[COL.room]) === norm(room) && norm(r[COL.name]) === norm(name));
+    const busy = {}, perDay = {};
     readRows_().forEach(r => {
-      if (r[COL.status] === 'active') busy[r[COL.date] + '#' + r[COL.slot] + '#' + r[COL.machine]] = true;
+      if (r[COL.status] !== 'active') return;
+      busy[r[COL.date] + '#' + r[COL.slot] + '#' + r[COL.machine]] = true;
+      if (isSamePerson(r)) perDay[r[COL.date]] = (perDay[r[COL.date]] || 0) + 1;
     });
     const conflicts = cells.filter(c => busy[c.date + '#' + c.slot + '#' + c.machine] || (c.date === today && closed.indexOf(c.slot) >= 0));
     if (conflicts.length) {
       return { ok: false, conflicts: conflicts, state: getState(req.deviceId) };
     }
+    const newPerDay = {};
+    cells.forEach(c => { newPerDay[c.date] = (newPerDay[c.date] || 0) + 1; });
+    if (Object.keys(newPerDay).some(d => (perDay[d] || 0) + newPerDay[d] > MAX_PER_DAY)) throw new Error('ERR_LIMIT');
     const now = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm:ss');
-    const device = hash_(req.deviceId);
     const batch = Utilities.getUuid().slice(0, 8);
     const rows = cells.map(c => {
       const r = new Array(HEADERS.length).fill('');
@@ -145,6 +162,46 @@ function cancel(deviceId, id) {
     lock.releaseLock();
   }
   return getState(deviceId);
+}
+
+// ---------- админка ----------
+
+/**
+ * req = { password, op: 'login' | 'setMachines', machines?: { "<номер>": "<причина>" } }
+ * В machines передаются только неработающие машинки; остальные считаются рабочими.
+ */
+function adminApi(req) {
+  checkAdmin_(req.password);
+  if (req.op === 'login') return { disabled: disabled_() };
+  if (req.op === 'setMachines') {
+    const out = {};
+    Object.keys(req.machines || {}).forEach(k => {
+      const n = Number(k);
+      if (n >= 1 && n <= MACHINES) out[n] = String(req.machines[k] || '').trim().slice(0, 120);
+    });
+    PropertiesService.getScriptProperties().setProperty('disabled', JSON.stringify(out));
+    return { disabled: out };
+  }
+  throw new Error('ERR_ACTION');
+}
+
+/** Пароль сверяется с солёным хэшем из Secrets.gs (файл не попадает в git). */
+function checkAdmin_(password) {
+  if (typeof ADMIN_PASSWORD_HASH === 'undefined') throw new Error('ERR_ADMIN_OFF');
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('adminFails') || 0);
+  if (fails >= ADMIN_MAX_FAILS) throw new Error('ERR_ADMIN_LOCKED');
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, ADMIN_SALT + String(password || ''), Utilities.Charset.UTF_8);
+  if (Utilities.base64Encode(bytes) !== ADMIN_PASSWORD_HASH) {
+    cache.put('adminFails', String(fails + 1), 900);
+    throw new Error('ERR_ADMIN_PASSWORD');
+  }
+}
+
+/** Неработающие машинки: { "5": "причина" }. Действуют на все дни, пока админ не включит обратно. */
+function disabled_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('disabled') || '{}'); }
+  catch (e) { return {}; }
 }
 
 // ---------- helpers ----------
