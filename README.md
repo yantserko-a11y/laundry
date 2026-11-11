@@ -1,5 +1,7 @@
 # Запись на стирку
 
+> Хотите поменять сайт с помощью нейросети? Скормите ей [AGENTS.md](AGENTS.md) — там всё устройство проекта, правила и как выложить изменения. Доступ к GitHub — Кристина Янцер (@yatloh в Telegram), к аккаунту Lensovetik — Кристина или старосты общежития.
+
 - Страница: https://yantserko-a11y.github.io/laundry/
 - Apps Script (API и запасная страница): https://script.google.com/macros/s/AKfycbx0ZgqzJRiuFUDiF7XprkQcve19oIhvDXlNq8Top7QLdTUy67wMFeqOhRVYzm-RmeTsdw/exec
 
