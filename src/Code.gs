@@ -19,6 +19,8 @@ const MAX_CONTACT_LEN = 100;
 const MAX_PER_DAY = 6;
 const MAX_NOTE_LEN = 140; // заметка админа к машинке
 const ADMIN_MAX_FAILS = 10; // неудачных входов в админку за 15 минут, потом пауза
+const ADMIN_TOKEN_DAYS = 365; // сколько живёт вход с устройства без повторного пароля
+const ADMIN_MAX_TOKENS = 30; // запомненных устройств админов; самые старые вытесняются
 
 /**
  * GET без параметров — страница (запасной вариант), GET ?action=state&device=… — JSON для GitHub Pages.
@@ -175,8 +177,14 @@ function cancel(deviceId, id) {
  * notes — заметки админа к машинкам (видны всем): у работающей — особенность, у выключенной — пояснение.
  */
 function adminApi(req) {
-  checkAdmin_(req.password);
-  if (req.op === 'login') return { disabled: disabled_(), notes: notes_() };
+  // Вход по паролю выдаёт устройству токен: дальше админка открывается без пароля
+  if (req.op === 'login') {
+    checkAdmin_(req.password);
+    return { token: issueAdminToken_(), disabled: disabled_(), notes: notes_() };
+  }
+  if (req.op === 'logout') { revokeAdminToken_(req.token); return { ok: true }; }
+  checkAdminToken_(req.token);
+  if (req.op === 'get') return { disabled: disabled_(), notes: notes_() };
   if (req.op === 'setMachines') {
     const out = {};
     Object.keys(req.machines || {}).forEach(k => {
@@ -194,6 +202,46 @@ function adminApi(req) {
     return { disabled: out, notes: notes };
   }
   throw new Error('ERR_ACTION');
+}
+
+/** Токены устройств админов: в свойствах лежат только их хэши { hash: выдан_мс }. */
+function adminTokens_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('adminTokens') || '{}'); }
+  catch (e) { return {}; }
+}
+function saveAdminTokens_(t) {
+  PropertiesService.getScriptProperties().setProperty('adminTokens', JSON.stringify(t));
+}
+function tokenHash_(token) {
+  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8));
+}
+function issueAdminToken_() {
+  const token = Utilities.getUuid() + Utilities.getUuid();
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const t = adminTokens_(), now = Date.now(), ttl = ADMIN_TOKEN_DAYS * 864e5;
+    Object.keys(t).forEach(h => { if (now - t[h] > ttl) delete t[h]; });
+    t[tokenHash_(token)] = now;
+    const keys = Object.keys(t).sort((a, b) => t[a] - t[b]);
+    keys.slice(0, Math.max(0, keys.length - ADMIN_MAX_TOKENS)).forEach(h => delete t[h]);
+    saveAdminTokens_(t);
+  } finally { lock.releaseLock(); }
+  return token;
+}
+function checkAdminToken_(token) {
+  if (!token) throw new Error('ERR_ADMIN_TOKEN');
+  const issued = adminTokens_()[tokenHash_(token)];
+  if (!issued || Date.now() - issued > ADMIN_TOKEN_DAYS * 864e5) throw new Error('ERR_ADMIN_TOKEN');
+}
+function revokeAdminToken_(token) {
+  if (!token) return;
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try { const t = adminTokens_(); delete t[tokenHash_(token)]; saveAdminTokens_(t); }
+  finally { lock.releaseLock(); }
+}
+/** Запустить вручную в редакторе после смены пароля: разлогинит все устройства админов. */
+function revokeAllAdminTokens() {
+  PropertiesService.getScriptProperties().deleteProperty('adminTokens');
 }
 
 /** Пароль сверяется с солёным хэшем из Secrets.gs (файл не попадает в git). */

@@ -9,6 +9,8 @@
   for (let i = 0; i <= 7 - dow; i++) days.push(fmt(new Date(now.getTime() + i * 864e5)));
   const P = [['Смирнова Алина', '214', '@alina_sm'], ['Ким Даниил', '305', 'vk.com/dkim'], ['Орлова Вера', '118', '']];
   let rows = [], n = 0, disabled = {}, notes = {};
+  // Токены на стенде живут до перезагрузки страницы; tok-keep работает всегда (проверка «запомненного» входа)
+  const tokens = new Set(['tok-keep']);
   const add = (d, s, m, p) => rows.push({ id: 'r' + (n++), date: days[d], slot: SLOTS[s], machine: m, name: P[p][0], room: P[p][1], contact: P[p][2], dev: 'x' });
   add(0, 1, 1, 0); add(0, 1, 2, 0); add(0, 2, 3, 1); add(0, 4, 2, 2);
   const closed = () => SLOTS.filter(s => { const e = s.split('-')[1]; return 12 * 60 + 30 >= (e === '00:00' ? 1440 : +e.slice(0, 2) * 60); });
@@ -28,7 +30,9 @@
     },
     cancel: (dev, id) => { rows = rows.filter(x => x.id !== id); return st(dev); },
     adminApi: req => {
-      if (req.password !== 'test') throw new Error('ERR_ADMIN_PASSWORD');
+      if (req.op === 'login') { if (req.password !== 'test') throw new Error('ERR_ADMIN_PASSWORD'); tokens.add('tok' + (++n)); return { token: 'tok' + n, disabled: { ...disabled }, notes: { ...notes } }; }
+      if (req.op === 'logout') { tokens.delete(req.token); return { ok: true }; }
+      if (!tokens.has(req.token)) throw new Error('ERR_ADMIN_TOKEN');
       if (req.op === 'setMachines') { disabled = { ...req.machines }; notes = { ...(req.notes || {}) }; }
       return { disabled: { ...disabled }, notes: { ...notes } };
     },

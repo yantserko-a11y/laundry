@@ -204,6 +204,7 @@
   <h2 data-i18n="adminTitle">Вход для администратора</h2>
   <label for="adminPass" data-i18n="adminPass">Пароль</label>
   <input type="password" id="adminPass" autocomplete="current-password">
+  <div class="sub" data-i18n="adminRemember">Пароль нужен один раз: это устройство запомнит вход.</div>
   <div class="err" id="adminErr"></div>
   <div class="actions">
     <button class="btn ghost" id="adminCancel" data-i18n="back">Назад</button>
@@ -272,10 +273,10 @@ const I18N = {
     safariTitle: 'Открой в Safari', yourWash: 'Твоя стирка',
     safariText: 'Telegram и другие приложения не умеют добавлять события в календарь iPhone. Нажми меню (≡ или ⋯) и выбери «Открыть в Safari» — или скопируй ссылку и вставь её в Safari: там сразу появится кнопка календаря.',
     copyLink: 'Скопировать ссылку', copied: 'Ссылка скопирована — вставь её в Safari',
-    adminLink: 'Администратору', adminTitle: 'Вход для администратора', adminPass: 'Пароль', adminLogin: 'Войти',
+    adminLink: 'Администратору', adminTitle: 'Вход для администратора', adminPass: 'Пароль', adminLogin: 'Войти', adminRemember: 'Пароль нужен один раз: это устройство запомнит вход. Отдельная ссылка для админов — yantserko-a11y.github.io/laundry/admin.html',
     adminPanel: 'Машинки', adminHint: 'Сними галочку, если машинка не работает: на неё нельзя будет записаться ни на один день, пока снова не включишь. В заметке можно написать, что не так (например, «только программы 180–210 мин») — её увидят все.',
     works: 'работает', notePh: 'Заметка для всех (необязательно)', save: 'Сохранить', saved: 'Сохранено', logout: 'Выйти',
-    ERR_ADMIN_PASSWORD: 'Неверный пароль.', ERR_ADMIN_LOCKED: 'Слишком много попыток. Попробуй через 15 минут.', ERR_ADMIN_OFF: 'Админка не настроена.',
+    ERR_ADMIN_PASSWORD: 'Неверный пароль.', ERR_ADMIN_TOKEN: 'Вход на этом устройстве устарел, введи пароль ещё раз.', ERR_ADMIN_LOCKED: 'Слишком много попыток. Попробуй через 15 минут.', ERR_ADMIN_OFF: 'Админка не настроена.',
   },
   en: {
     title: 'Laundry booking', subtitle: 'Booking is open up to and including the coming Sunday', loading: 'Loading slots…',
@@ -311,10 +312,10 @@ const I18N = {
     safariTitle: 'Open in Safari', yourWash: 'Your laundry',
     safariText: 'Telegram and other apps can’t add events to the iPhone calendar. Tap the menu (≡ or ⋯) and choose “Open in Safari”, or copy the link and paste it into Safari — the calendar button will be there.',
     copyLink: 'Copy link', copied: 'Link copied — paste it into Safari',
-    adminLink: 'For the administrator', adminTitle: 'Administrator login', adminPass: 'Password', adminLogin: 'Log in',
+    adminLink: 'For the administrator', adminTitle: 'Administrator login', adminPass: 'Password', adminLogin: 'Log in', adminRemember: 'You only need the password once: this device will remember the login. Admin link — yantserko-a11y.github.io/laundry/admin.html',
     adminPanel: 'Machines', adminHint: 'Untick a machine that is out of order: nobody can book it on any day until you turn it back on. Use the note to say what’s wrong (e.g. “only 180–210 min programs”) — everyone will see it.',
     works: 'working', notePh: 'Note for everyone (optional)', save: 'Save', saved: 'Saved', logout: 'Log out',
-    ERR_ADMIN_PASSWORD: 'Wrong password.', ERR_ADMIN_LOCKED: 'Too many attempts. Try again in 15 minutes.', ERR_ADMIN_OFF: 'The admin panel is not set up.',
+    ERR_ADMIN_PASSWORD: 'Wrong password.', ERR_ADMIN_TOKEN: 'Login on this device has expired, enter the password again.', ERR_ADMIN_LOCKED: 'Too many attempts. Try again in 15 minutes.', ERR_ADMIN_OFF: 'The admin panel is not set up.',
   },
 };
 let lang = store.get('lang', null) || ((navigator.language || '').toLowerCase().startsWith('ru') ? 'ru' : 'en');
@@ -775,30 +776,40 @@ function renderInstall() {
 }
 
 // ---------- админка ----------
-// Пароль живёт только до закрытия вкладки
-const adminPass = {
-  get() { try { return sessionStorage.getItem('laundry.admin'); } catch (e) { return null; } },
-  set(v) { try { v ? sessionStorage.setItem('laundry.admin', v) : sessionStorage.removeItem('laundry.admin'); } catch (e) {} },
+// После входа по паролю сервер выдаёт токен устройства; пароль на устройстве не хранится
+const adminToken = {
+  get() { try { return localStorage.getItem('laundry.adminToken'); } catch (e) { return null; } },
+  set(v) { try { v ? localStorage.setItem('laundry.adminToken', v) : localStorage.removeItem('laundry.adminToken'); } catch (e) {} },
 };
-$('adminLink').onclick = async () => {
-  if (!state) return;
-  const saved = adminPass.get();
-  if (saved) {
-    try { const r = await call('adminApi', { password: saved, op: 'login' }); state.disabled = r.disabled; state.notes = r.notes || {}; return openPanel(); }
-    catch (e) { adminPass.set(null); }
-  }
-  $('adminPass').value = ''; $('adminErr').textContent = '';
+function showAdminLogin(msg) {
+  $('panelBg').classList.remove('open');
+  $('adminPass').value = ''; $('adminErr').textContent = msg || '';
   $('adminBg').classList.add('open');
   setTimeout(() => $('adminPass').focus(), 50);
-};
+}
+async function openAdmin() {
+  if (!state) return;
+  const token = adminToken.get();
+  if (!token) return showAdminLogin();
+  try {
+    const r = await call('adminApi', { token, op: 'get' });
+    state.disabled = r.disabled; state.notes = r.notes || {};
+    openPanel();
+  } catch (e) {
+    if (String(e.message).includes('ERR_ADMIN_TOKEN')) { adminToken.set(null); showAdminLogin(errText(e)); }
+    else toast(errText(e));
+  }
+}
+$('adminLink').onclick = openAdmin;
 $('adminCancel').onclick = () => $('adminBg').classList.remove('open');
 $('adminPass').onkeydown = e => { if (e.key === 'Enter') $('adminLogin').click(); };
 $('adminLogin').onclick = async () => {
   const btn = $('adminLogin'); btn.disabled = true; $('adminErr').textContent = '';
   try {
     const r = await call('adminApi', { password: $('adminPass').value, op: 'login' });
-    adminPass.set($('adminPass').value);
+    adminToken.set(r.token);
     state.disabled = r.disabled; state.notes = r.notes || {};
+    $('adminPass').value = '';
     $('adminBg').classList.remove('open');
     openPanel();
   } catch (e) { $('adminErr').textContent = errText(e); }
@@ -829,21 +840,31 @@ $('panelSave').onclick = async () => {
   });
   const btn = $('panelSave'); btn.disabled = true;
   try {
-    const r = await call('adminApi', { password: adminPass.get(), op: 'setMachines', machines, notes });
+    const r = await call('adminApi', { token: adminToken.get(), op: 'setMachines', machines, notes });
     state.disabled = r.disabled; state.notes = r.notes || {};
     $('panelBg').classList.remove('open');
     toast(T().saved);
     renderGrid();
-  } catch (e) { $('panelErr').textContent = errText(e); }
+  } catch (e) {
+    if (String(e.message).includes('ERR_ADMIN_TOKEN')) { adminToken.set(null); showAdminLogin(errText(e)); }
+    else $('panelErr').textContent = errText(e);
+  }
   finally { btn.disabled = false; }
 };
-$('adminLogout').onclick = () => { adminPass.set(null); $('panelBg').classList.remove('open'); };
+$('adminLogout').onclick = () => {
+  const token = adminToken.get(); adminToken.set(null);
+  $('panelBg').classList.remove('open');
+  if (token) call('adminApi', { token, op: 'logout' }).catch(() => {});
+};
+// Ссылка …/admin.html (или #admin) сразу открывает админку, как только есть данные
+let adminAuto = location.hash === '#admin';
+function maybeAutoAdmin() { if (adminAuto && state) { adminAuto = false; openAdmin(); } }
 
 document.querySelectorAll('.sheet-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
 
 // ---------- загрузка и автообновление ----------
 async function refresh() {
-  try { state = await call('getState', deviceId); store.set('state', state); renderGrid(); handleIcsParam(); }
+  try { state = await call('getState', deviceId); store.set('state', state); renderGrid(); handleIcsParam(); maybeAutoAdmin(); }
   catch (e) { if (!state) $('grid').textContent = T().loadFail + errText(e); }
 }
 // ?lang=… из ссылки «Открыть в Safari» — язык как у того, кто её открыл
@@ -856,7 +877,7 @@ applyLang();
   const d = new Date(Date.now() + 3 * 3600e3); // Москва, UTC+3
   const today = [d.getUTCDate(), d.getUTCMonth() + 1].map(n => String(n).padStart(2, '0')).join('.') + '.' + d.getUTCFullYear();
   const cached = store.get('state', null);
-  if (cached && cached.today === today && Array.isArray(cached.taken)) { state = cached; renderGrid(); }
+  if (cached && cached.today === today && Array.isArray(cached.taken)) { state = cached; renderGrid(); maybeAutoAdmin(); }
 })();
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 30000);

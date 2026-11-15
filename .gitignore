@@ -5,3 +5,4 @@ ADMIN_PASSWORD.txt
 dev/index.html
 dev/*.png
 dev/manifest.webmanifest
+dev/admin.html
