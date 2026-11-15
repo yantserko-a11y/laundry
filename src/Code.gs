@@ -55,7 +55,7 @@ function json_(fn) {
 function getState(deviceId) {
   const days = days_();
   const device = hash_(deviceId);
-  const rows = readRows_().filter(r => days.indexOf(r[COL.date]) >= 0 && r[COL.status] === 'active');
+  const rows = rowsCached_().filter(r => days.indexOf(r[COL.date]) >= 0 && r[COL.status] === 'active');
   const taken = rows.map(r => ({
     date: r[COL.date],
     slot: r[COL.slot],
@@ -137,6 +137,7 @@ function book(req) {
     const sh = sheet_();
     // Пишем текстом, иначе таблица превратит комнату «012» в 12, а время — в дату
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, HEADERS.length).setNumberFormat('@').setValues(rows);
+    dropRowsCache_();
   } finally {
     lock.releaseLock();
   }
@@ -155,6 +156,7 @@ function cancel(deviceId, id) {
       if (values[i][COL.id] === id) {
         if (values[i][COL.device] !== device) throw new Error('ERR_NOT_MINE');
         sh.getRange(i + 1, COL.status + 1).setValue('cancelled');
+        dropRowsCache_();
         break;
       }
     }
@@ -218,6 +220,22 @@ function sheet_() {
   return sh;
 }
 
+// Кэш строк таблицы на 30 секунд: чтение таблицы — самая медленная часть ответа.
+// Запись проверяет конфликты по свежим данным (readRows_), а после записи/отмены кэш сбрасывается.
+// Ручные правки в таблице появятся на сайте с задержкой до ROWS_CACHE_SEC.
+const ROWS_CACHE_SEC = 30;
+function rowsCached_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('rows');
+  if (hit) return JSON.parse(hit);
+  const rows = readRows_();
+  try { cache.put('rows', JSON.stringify(rows), ROWS_CACHE_SEC); } catch (e) {} // > 100 КБ — просто без кэша
+  return rows;
+}
+function dropRowsCache_() {
+  CacheService.getScriptCache().remove('rows');
+}
+
 function readRows_() {
   const sh = sheet_();
   const last = sh.getLastRow();
@@ -278,6 +296,7 @@ function weeklyReset() {
     });
     sh.getRange(2, 1, last - 1, HEADERS.length).clearContent();
     if (keep.length) sh.getRange(2, 1, keep.length, HEADERS.length).setValues(keep);
+    dropRowsCache_();
   } finally {
     lock.releaseLock();
   }

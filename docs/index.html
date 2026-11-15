@@ -5,6 +5,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Запись на стирку</title>
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -818,13 +820,21 @@ document.querySelectorAll('.sheet-bg').forEach(bg => bg.addEventListener('click'
 
 // ---------- загрузка и автообновление ----------
 async function refresh() {
-  try { state = await call('getState', deviceId); renderGrid(); handleIcsParam(); }
+  try { state = await call('getState', deviceId); store.set('state', state); renderGrid(); handleIcsParam(); }
   catch (e) { if (!state) $('grid').textContent = T().loadFail + errText(e); }
 }
 // ?lang=… из ссылки «Открыть в Safari» — язык как у того, кто её открыл
 const qLang = new URLSearchParams(location.search).get('lang');
 if (qLang === 'ru' || qLang === 'en') { lang = qLang; store.set('lang', lang); }
 applyLang();
+// Сразу показываем последнее сохранённое состояние за сегодня, пока сервер отвечает (~2–3 с).
+// Занятость уточнится после ответа; записаться на занятое всё равно нельзя — сервер проверяет.
+(function showCachedState() {
+  const d = new Date(Date.now() + 3 * 3600e3); // Москва, UTC+3
+  const today = [d.getUTCDate(), d.getUTCMonth() + 1].map(n => String(n).padStart(2, '0')).join('.') + '.' + d.getUTCFullYear();
+  const cached = store.get('state', null);
+  if (cached && cached.today === today && Array.isArray(cached.taken)) { state = cached; renderGrid(); }
+})();
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
