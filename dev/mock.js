@@ -8,12 +8,12 @@
   const now = new Date(), dow = now.getDay() || 7, days = [];
   for (let i = 0; i <= 7 - dow; i++) days.push(fmt(new Date(now.getTime() + i * 864e5)));
   const P = [['Смирнова Алина', '214', '@alina_sm'], ['Ким Даниил', '305', 'vk.com/dkim'], ['Орлова Вера', '118', '']];
-  let rows = [], n = 0, disabled = {};
+  let rows = [], n = 0, disabled = {}, notes = {};
   const add = (d, s, m, p) => rows.push({ id: 'r' + (n++), date: days[d], slot: SLOTS[s], machine: m, name: P[p][0], room: P[p][1], contact: P[p][2], dev: 'x' });
   add(0, 1, 1, 0); add(0, 1, 2, 0); add(0, 2, 3, 1); add(0, 4, 2, 2);
   const closed = () => SLOTS.filter(s => { const e = s.split('-')[1]; return 12 * 60 + 30 >= (e === '00:00' ? 1440 : +e.slice(0, 2) * 60); });
   // Как и настоящий API: номер комнаты наружу не отдаётся
-  const st = dev => ({ today: days[0], days, slots: SLOTS, machines: 6, price: 50, maxPerDay: MAX, closed: closed(), disabled: { ...disabled },
+  const st = dev => ({ today: days[0], days, slots: SLOTS, machines: 6, price: 50, maxPerDay: MAX, closed: closed(), disabled: { ...disabled }, notes: { ...notes },
     taken: rows.map(r => ({ id: r.id, date: r.date, slot: r.slot, machine: r.machine, name: r.name, contact: r.contact, mine: r.dev === dev })) });
   const api = {
     getState: dev => st(dev),
@@ -29,8 +29,8 @@
     cancel: (dev, id) => { rows = rows.filter(x => x.id !== id); return st(dev); },
     adminApi: req => {
       if (req.password !== 'test') throw new Error('ERR_ADMIN_PASSWORD');
-      if (req.op === 'setMachines') disabled = { ...req.machines };
-      return { disabled: { ...disabled } };
+      if (req.op === 'setMachines') { disabled = { ...req.machines }; notes = { ...(req.notes || {}) }; }
+      return { disabled: { ...disabled }, notes: { ...notes } };
     },
   };
   const delay = () => { try { return Number(localStorage.getItem('mockDelay')) || 100; } catch (e) { return 100; } };

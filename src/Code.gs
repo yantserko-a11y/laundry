@@ -17,6 +17,7 @@ const COL = { id: 0, created: 1, date: 2, slot: 3, machine: 4, name: 5, room: 6,
 const MAX_CONTACT_LEN = 100;
 // Не больше стольких машинок в день на человека: 5–6 за раз можно, занять всю неделю — нет
 const MAX_PER_DAY = 6;
+const MAX_NOTE_LEN = 140; // заметка админа к машинке
 const ADMIN_MAX_FAILS = 10; // неудачных входов в админку за 15 минут, потом пауза
 
 /**
@@ -68,7 +69,7 @@ function getState(deviceId) {
   }));
   return {
     today: days[0], days: days, slots: SLOTS, machines: MACHINES, price: PRICE, maxPerDay: MAX_PER_DAY,
-    taken: taken, closed: closedSlots_(), disabled: disabled_(),
+    taken: taken, closed: closedSlots_(), disabled: disabled_(), notes: notes_(),
   };
 }
 
@@ -169,20 +170,28 @@ function cancel(deviceId, id) {
 // ---------- админка ----------
 
 /**
- * req = { password, op: 'login' | 'setMachines', machines?: { "<номер>": "" } }
+ * req = { password, op: 'login' | 'setMachines', machines?: { "<номер>": "" }, notes?: { "<номер>": "текст" } }
  * В machines передаются только неработающие машинки; остальные считаются рабочими.
+ * notes — заметки админа к машинкам (видны всем): у работающей — особенность, у выключенной — пояснение.
  */
 function adminApi(req) {
   checkAdmin_(req.password);
-  if (req.op === 'login') return { disabled: disabled_() };
+  if (req.op === 'login') return { disabled: disabled_(), notes: notes_() };
   if (req.op === 'setMachines') {
     const out = {};
     Object.keys(req.machines || {}).forEach(k => {
       const n = Number(k);
       if (n >= 1 && n <= MACHINES) out[n] = '';
     });
-    PropertiesService.getScriptProperties().setProperty('disabled', JSON.stringify(out));
-    return { disabled: out };
+    const notes = {};
+    Object.keys(req.notes || {}).forEach(k => {
+      const n = Number(k), text = String(req.notes[k] || '').trim().slice(0, MAX_NOTE_LEN);
+      if (n >= 1 && n <= MACHINES && text) notes[n] = text;
+    });
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty('disabled', JSON.stringify(out));
+    props.setProperty('notes', JSON.stringify(notes));
+    return { disabled: out, notes: notes };
   }
   throw new Error('ERR_ACTION');
 }
@@ -203,6 +212,12 @@ function checkAdmin_(password) {
 /** Неработающие машинки: { "5": "" }. Действуют на все дни, пока админ не включит обратно. */
 function disabled_() {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('disabled') || '{}'); }
+  catch (e) { return {}; }
+}
+
+/** Заметки админа к машинкам: { "3": "только программы 180–210 минут" }. */
+function notes_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('notes') || '{}'); }
   catch (e) { return {}; }
 }
 
