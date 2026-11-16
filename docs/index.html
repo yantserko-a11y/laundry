@@ -80,6 +80,7 @@
   .actions .btn { flex: 1; }
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 20; display: none; max-width: calc(100% - 32px); }
   .err { color: var(--danger); font-size: 13px; margin-top: 8px; }
+  input.need { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
   .loading { color: var(--muted); padding: 30px 0; text-align: center; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
   .who-contact { margin-top: 14px; font-size: 15px; word-break: break-word; }
@@ -251,7 +252,7 @@ const I18N = {
     whoContact: 'Контакт', whoNoContact: 'Контакт не оставлен', close: 'Закрыть', remember: 'Запомним на этом телефоне — в следующий раз вводить не придётся.',
     edit: 'Изменить', roomN: n => 'комната ' + n, today: 'сегодня', tomorrow: 'завтра', wd: ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'],
     locale: 'ru-RU', machine: n => 'машинка №' + n, mine: 'моё', ariaMine: 'моя запись', ariaTaken: 'занято', ariaPast: 'прошло', ariaSel: 'выбрано',
-    selected: (n, sum) => `Выбрано: <b>${n}</b> · ${sum} ₽`, pick: 'Выбери ячейки в таблице', fill: 'Заполни имя и комнату',
+    selected: (n, sum) => `Выбрано: <b>${n}</b> · ${sum} ₽`, pick: 'Выбери ячейки в таблице', fill: 'Заполни имя и комнату', needProfile: 'Сначала впиши имя и комнату вверху страницы — без них записаться нельзя.',
     total: sum => `Итого: ${sum} ₽`, perWash: p => `(${p} ₽ за стирку)`, tickConsent: 'Поставь галочку согласия.',
     done: 'Готово, записано ✓', conflict: list => `Кто-то успел раньше: ${list}. Выбери другие.`, cancelled: 'Запись отменена',
     loadFail: 'Не удалось загрузить: ', readFail: 'Не удалось прочитать файл.',
@@ -290,7 +291,7 @@ const I18N = {
     whoContact: 'Contact', whoNoContact: 'No contact left', close: 'Close', remember: 'Saved on this phone — you won’t need to type it again.',
     edit: 'Edit', roomN: n => 'room ' + n, today: 'today', tomorrow: 'tomorrow', wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     locale: 'en-GB', machine: n => 'machine #' + n, mine: 'mine', ariaMine: 'my booking', ariaTaken: 'taken', ariaPast: 'past', ariaSel: 'selected',
-    selected: (n, sum) => `Selected: <b>${n}</b> · ${sum} ₽`, pick: 'Pick cells in the table', fill: 'Enter your name and room',
+    selected: (n, sum) => `Selected: <b>${n}</b> · ${sum} ₽`, pick: 'Pick cells in the table', fill: 'Enter your name and room', needProfile: 'First enter your name and room at the top of the page — you can’t book without them.',
     total: sum => `Total: ${sum} ₽`, perWash: p => `(${p} ₽ per wash)`, tickConsent: 'Please tick the consent box.',
     done: 'Done, you’re booked ✓', conflict: list => `Someone was faster: ${list}. Pick other cells.`, cancelled: 'Booking cancelled',
     loadFail: 'Could not load: ', readFail: 'Could not read the file.',
@@ -403,6 +404,7 @@ function renderProfile() {
     $('name').oninput = $('room').oninput = $('contact').oninput = () => {
       profile = { name: $('name').value.trim(), room: $('room').value.trim(), contact: $('contact').value.trim() };
       store.set('profile', profile); updateBar();
+      ['name', 'room'].forEach(id => { if ($(id).value.trim()) $(id).classList.remove('need'); });
     };
   } else {
     el.innerHTML = `<div class="me"><div><b></b> <span class="sub"></span></div><button class="link" id="edit">${T().edit}</button></div>`;
@@ -491,7 +493,7 @@ function updateBar() {
   const n = selected.size;
   const ready = profile.name && profile.room;
   $('sum').innerHTML = n ? T().selected(n, n * (state ? state.price : 50)) : (ready ? T().pick : T().fill);
-  $('go').disabled = !n || !ready;
+  $('go').disabled = !n; // без имени и комнаты кнопка активна, но по тапу подсказывает, что заполнить
 }
 
 // ---------- запись ----------
@@ -502,6 +504,15 @@ function sortedCells() {
 }
 
 $('go').onclick = () => {
+  if (!profile.name || !profile.room) {
+    if (!editingProfile) { editingProfile = true; renderProfile(); }
+    const empty = ['name', 'room'].filter(id => !$(id).value.trim());
+    empty.forEach(id => $(id).classList.add('need'));
+    toast(T().needProfile);
+    $('profile').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => $(empty[0] || 'name').focus({ preventScroll: true }), 300);
+    return;
+  }
   if (editingProfile && profile.name && profile.room) { editingProfile = false; renderProfile(); }
   const cells = sortedCells();
   $('chips').innerHTML = '';
