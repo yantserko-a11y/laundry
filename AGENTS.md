@@ -79,13 +79,13 @@
 
 **POST** `/exec`, тело — JSON, `Content-Type: text/plain` (именно text/plain — так нет CORS-preflight, который Apps Script не умеет):
 
-- `{"action":"book","deviceId","name","room","contact","consent":true,"cells":[{"date","slot","machine"}],"receipt"?:{"name","mime","base64"}}` → `{"ok":true,"state":…}` или `{"ok":false,"conflicts":[…],"state":…}`, если ячейку успели занять.
+- `{"action":"book","deviceId","name","room","contact","consent":true,"cells":[{"date","slot","machine"}],"receipt":{"name","mime","base64"}}` → `{"ok":true,"state":…}` или `{"ok":false,"conflicts":[…],"state":…}`, если ячейку успели занять.
 - `{"action":"cancel","deviceId","id"}` → новое состояние. Отменить можно только запись своего устройства (`ERR_NOT_MINE`).
 - `{"action":"admin","password","op":"login"}` → `{"token","disabled":{…},"notes":{…}}`. Пароль нужен только здесь: в ответ устройство получает токен (живёт `ADMIN_TOKEN_DAYS` = 365 дней, хранится в `localStorage`), в Script Properties (`adminTokens`) лежат только SHA-256 хэши токенов, не больше `ADMIN_MAX_TOKENS` = 30 устройств.
 - `{"action":"admin","token","op":"get"}` → `{"disabled","notes"}`; `{"action":"admin","token","op":"logout"}` — забыть это устройство.
 - `{"action":"admin","token","op":"setMachines","machines":{"5":""},"notes":{"3":"только программы 180–210 мин"}}` — `machines`: список **неработающих** машинок (всех остальных считаем рабочими), `notes`: заметки админа к машинкам (до 140 символов, видны всем: у работающей — особенность, у выключенной — пояснение). Хранятся в Script Properties (`disabled`, `notes`) и действуют, пока админ не изменит.
 
-Коды ошибок: `ERR_PROFILE`, `ERR_CONSENT`, `ERR_EMPTY`, `ERR_LIMIT`, `ERR_MACHINE_OFF`, `ERR_NOT_MINE`, `ERR_FILE_SIZE`, `ERR_ADMIN_PASSWORD`, `ERR_ADMIN_TOKEN` (токена нет или он устарел — страница сама просит пароль), `ERR_ADMIN_LOCKED`, `ERR_ADMIN_OFF`, `ERR_ACTION`. Новый код ошибки → добавить перевод в оба языка в `I18N` на странице.
+Коды ошибок: `ERR_PROFILE`, `ERR_CONSENT`, `ERR_EMPTY`, `ERR_LIMIT`, `ERR_MACHINE_OFF`, `ERR_NOT_MINE`, `ERR_FILE_SIZE`, `ERR_RECEIPT` (нет квитанции — она обязательна, одна на всю запись), `ERR_ADMIN_PASSWORD`, `ERR_ADMIN_TOKEN` (токена нет или он устарел — страница сама просит пароль), `ERR_ADMIN_LOCKED`, `ERR_ADMIN_OFF`, `ERR_ACTION`. Новый код ошибки → добавить перевод в оба языка в `I18N` на странице.
 
 ### Важные детали бэкенда
 

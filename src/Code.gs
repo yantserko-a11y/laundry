@@ -77,7 +77,7 @@ function getState(deviceId) {
 
 /**
  * Записывает пачку ячеек одним запросом.
- * req = { deviceId, name, room, contact?, consent, cells: [{date, slot, machine}], receipt?: {name, mime, base64} }
+ * req = { deviceId, name, room, contact?, consent, cells: [{date, slot, machine}], receipt: {name, mime, base64} } — квитанция обязательна
  */
 function book(req) {
   const name = String(req.name || '').trim();
@@ -93,8 +93,9 @@ function book(req) {
   if (cells.some(c => Object.prototype.hasOwnProperty.call(off, String(c.machine)))) throw new Error('ERR_MACHINE_OFF');
   ensureTrigger_();
 
-  let receiptUrl = '';
-  if (req.receipt && req.receipt.base64) receiptUrl = saveReceipt_(req.receipt, name, room);
+  // Квитанция об оплате обязательна (одна на всю запись)
+  if (!req.receipt || !req.receipt.base64) throw new Error('ERR_RECEIPT');
+  const receiptUrl = saveReceipt_(req.receipt, name, room);
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);

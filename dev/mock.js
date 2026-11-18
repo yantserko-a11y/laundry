@@ -20,6 +20,7 @@
   const api = {
     getState: dev => st(dev),
     book: req => {
+      if (!req.receipt || !req.receipt.base64) throw new Error('ERR_RECEIPT');
       if (req.cells.some(c => String(c.machine) in disabled)) throw new Error('ERR_MACHINE_OFF');
       const per = {};
       rows.forEach(r => { if (r.dev === req.deviceId || (r.room === req.room && r.name === req.name)) per[r.date] = (per[r.date] || 0) + 1; });
