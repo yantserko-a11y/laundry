@@ -187,6 +187,7 @@ function adminApi(req) {
   checkAdminToken_(req.token);
   if (req.op === 'get') return { disabled: disabled_(), notes: notes_() };
   if (req.op === 'shareReceipts') return { shared: shareReceipts() };
+  if (req.op === 'paidTotal') { const sh = sheet_(); setPaidTotal_(sh); SpreadsheetApp.flush(); return { header: sh.getRange(1, COL.paid + 1).getDisplayValue(), formula: sh.getRange(1, COL.paid + 1).getFormula() }; }
   if (req.op === 'setMachines') {
     const out = {};
     Object.keys(req.machines || {}).forEach(k => {
@@ -281,8 +282,25 @@ function sheet_() {
     sh.appendRow(HEADERS);
     sh.setFrozenRows(1);
     sh.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
+    setPaidTotal_(sh);
   }
   return sh;
+}
+
+/**
+ * В шапке столбца «Оплата, ₽» — сумма по неотменённым записям (Статус = active).
+ * Суммы пишутся текстом, поэтому VALUE; пустые и нечисловые ячейки считаются нулём.
+ */
+function setPaidTotal_(sh) {
+  const col = c => String.fromCharCode(65 + c);
+  const paid = col(COL.paid), status = col(COL.status);
+  const cell = sh.getRange(1, COL.paid + 1);
+  const f = '="' + HEADERS[COL.paid] + ' (итого: "&SUMPRODUCT((' + status + '2:' + status + '="active")*IFERROR(VALUE(' + paid + '2:' + paid + '),0))&")"';
+  cell.setFormula(f);
+  SpreadsheetApp.flush();
+  // В русской локали таблицы аргументы иногда разбираются только через «;»
+  if (/^#/.test(cell.getDisplayValue())) { cell.setFormula(f.replace(/,0\)/, ';0)')); SpreadsheetApp.flush(); }
+  if (/^#/.test(cell.getDisplayValue())) cell.setValue(HEADERS[COL.paid]);
 }
 
 // Кэш строк таблицы на 30 секунд: чтение таблицы — самая медленная часть ответа.
