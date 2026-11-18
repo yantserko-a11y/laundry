@@ -81,6 +81,17 @@
   .toast { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; z-index: 20; display: none; max-width: calc(100% - 32px); }
   .err { color: var(--danger); font-size: 13px; margin-top: 8px; }
   input.need, input.file.need { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent); }
+  .paybtn { width: 100%; margin-top: 12px; }
+  .pay-sum { font-size: 22px; font-weight: 700; margin: 2px 0 4px; }
+  .prow { display: flex; justify-content: space-between; gap: 10px; align-items: center; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 8px; color: var(--text); font: inherit; cursor: pointer; }
+  .prow span { display: block; font-size: 12px; color: var(--muted); }
+  .prow b { font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .prow .cp { color: var(--accent); font-size: 13px; flex: none; }
+  .prow.copied { border-color: var(--mine-line); }
+  .pay-more { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+  .qr-box { text-align: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .qr-box canvas { width: 220px; height: 220px; background: #fff; border-radius: 12px; image-rendering: pixelated; }
+  .qr-box .sub { margin: 8px 0; font-size: 13px; }
   .loading { color: var(--muted); padding: 30px 0; text-align: center; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
   .who-contact { margin-top: 14px; font-size: 15px; word-break: break-word; }
@@ -150,6 +161,7 @@
   <div class="chips" id="chips"></div>
   <div><b id="total"></b> <span class="sub" id="perWash"></span></div>
   <div id="confirmNotes" class="notes-in-confirm"></div>
+  <button class="btn ghost paybtn" id="payOpen" type="button" data-i18n="payOpen">Реквизиты для оплаты</button>
   <div style="margin-top:12px">
     <label for="receipt" data-i18n="receipt">Квитанция об оплате</label>
     <input type="file" id="receipt" accept="image/*,application/pdf" class="file" required>
@@ -161,6 +173,20 @@
     <button class="btn ghost" id="cancelConfirm" data-i18n="back">Назад</button>
     <button class="btn" id="doBook" data-i18n="book">Записаться</button>
   </div>
+</div></div>
+
+<div class="sheet-bg" id="payBg"><div class="sheet">
+  <h2 data-i18n="payTitle">Оплата по реквизитам</h2>
+  <div class="pay-sum" id="paySum"></div>
+  <div class="sub" data-i18n="payHint">Нажми на строку, и она скопируется.</div>
+  <div id="payRows"></div>
+  <button class="btn ghost paybtn" id="payCopyAll" type="button" data-i18n="payCopyAll">Скопировать всё одним текстом</button>
+  <div class="qr-box">
+    <canvas id="payQr" width="220" height="220"></canvas>
+    <div class="sub" data-i18n="payQrHint">Или QR-код — сумма и назначение подставятся сами. Сканируй его в приложении банка («Оплата по QR»): обычная камера телефона его не откроет. Если сайт открыт на том же телефоне, с которого платишь, навести камеру на свой же экран не получится — сохрани картинку QR и в банке выбери «Оплата по QR» → «Из галереи».</div>
+    <button class="link" id="payQrSave" type="button" data-i18n="payQrSave">Сохранить QR</button>
+  </div>
+  <div class="actions"><button class="btn" id="payDone" type="button" data-i18n="payDone">Оплатил(а) — прикрепить квитанцию</button></div>
 </div></div>
 
 <div class="sheet-bg" id="undoBg"><div class="sheet">
@@ -243,7 +269,14 @@ const I18N = {
   ru: {
     title: 'Запись на стирку', subtitle: 'Запись открыта до ближайшего воскресенья включительно', loading: 'Загружаю слоты…',
     lgFree: 'свободно', lgSel: 'выбрано', lgMine: 'моё — нажми, чтобы отменить', lgTaken: 'занято', hint: 'Нажми на занятую ячейку — покажем, кто записан и как с ним связаться.',
-    book: 'Записаться', booking: 'Записываю…', confirmTitle: 'Подтвердить запись', receipt: 'Квитанция об оплате',
+    book: 'Записаться', booking: 'Записываю…',
+    payOpen: 'Реквизиты для оплаты', payTitle: 'Оплата по реквизитам', paySum: sum => `К оплате: ${sum} ₽`,
+    payHint: 'Нажми на строку, и она скопируется.',
+    payMore: 'Если банк спросит ещё:', payCopy: 'копировать', payCopied: what => `Скопировано: ${what}`, payCopyFail: 'Не получилось скопировать — выдели текст и скопируй вручную.',
+    payCopyAll: 'Скопировать всё одним текстом', payAllCopied: 'Реквизиты скопированы',
+    payQrHint: 'Или QR-код — сумма и назначение подставятся сами. Сканируй его в приложении банка («Оплата по QR»): обычная камера телефона его не откроет. Если сайт открыт на том же телефоне, с которого платишь, навести камеру на свой же экран не получится — сохрани картинку QR и в банке выбери «Оплата по QR» → «Из галереи».',
+    payQrSave: 'Сохранить QR', payDone: 'Оплатил(а) — прикрепить квитанцию', payAttach: 'Теперь прикрепи квитанцию об оплате.',
+    payF: { acc: 'Расчётный счёт', bic: 'БИК банка', inn: 'ИНН получателя', kbk: 'КБК', oktmo: 'ОКТМО', purpose: 'Назначение платежа', sum: 'Сумма, ₽', name: 'Получатель', kpp: 'КПП', corr: 'Корр. счёт (счёт банка получателя)', bank: 'Банк получателя' }, confirmTitle: 'Подтвердить запись', receipt: 'Квитанция об оплате',
     consent: 'Выражаю согласие, что за предоставление заведомо подложных документов и информации несу дисциплинарную ответственность',
     back: 'Назад', undoTitle: 'Моя запись', keep: 'Закрыть', cancel: 'Отменить запись',
     name: 'Фамилия и имя', namePh: 'Иванова Мария', room: 'Комната',
@@ -282,7 +315,14 @@ const I18N = {
   en: {
     title: 'Laundry booking', subtitle: 'Booking is open up to and including the coming Sunday', loading: 'Loading slots…',
     lgFree: 'free', lgSel: 'selected', lgMine: 'mine — tap to cancel', lgTaken: 'taken', hint: 'Tap a taken cell to see who booked it and how to reach them.',
-    book: 'Book', booking: 'Booking…', confirmTitle: 'Confirm booking', receipt: 'Payment receipt',
+    book: 'Book', booking: 'Booking…',
+    payOpen: 'Payment details', payTitle: 'Pay by bank transfer', paySum: sum => `To pay: ${sum} ₽`,
+    payHint: 'Tap a row to copy it.',
+    payMore: 'If the bank asks for more:', payCopy: 'copy', payCopied: what => `Copied: ${what}`, payCopyFail: 'Couldn’t copy — select the text and copy it manually.',
+    payCopyAll: 'Copy everything as text', payAllCopied: 'Payment details copied',
+    payQrHint: 'Or use the QR code — amount and purpose fill in automatically. Scan it inside your banking app (“Pay by QR”): the regular phone camera won’t open it. If the site is open on the same phone you pay with, you can’t point its camera at its own screen — save the QR image and choose “Pay by QR” → “From gallery” in the bank app.',
+    payQrSave: 'Save QR', payDone: 'Paid — attach the receipt', payAttach: 'Now attach the payment receipt.',
+    payF: { acc: 'Account number (Расчётный счёт)', bic: 'Bank BIC (БИК)', inn: 'Payee tax ID (ИНН)', kbk: 'Budget code (КБК)', oktmo: 'Municipal code (ОКТМО)', purpose: 'Payment purpose (Назначение платежа)', sum: 'Amount, ₽ (Сумма)', name: 'Payee (Получатель)', kpp: 'Tax registration code (КПП)', corr: 'Correspondent account (Корр. счёт)', bank: 'Payee bank (Банк получателя)' }, confirmTitle: 'Confirm booking', receipt: 'Payment receipt',
     consent: 'I agree that I am responsible for the provision of knowingly forged documents and information',
     back: 'Back', undoTitle: 'My booking', keep: 'Close', cancel: 'Cancel booking',
     name: 'Last name and first name', namePh: 'Ivanova Maria', room: 'Room',
@@ -517,7 +557,8 @@ $('go').onclick = () => {
   const cells = sortedCells();
   $('chips').innerHTML = '';
   cells.forEach(c => { const s = document.createElement('span'); s.className = 'chip'; s.textContent = `${dayLabel(c.date)}, ${c.slot} · ${T().machine(c.machine)}`; $('chips').appendChild(s); });
-  $('total').textContent = T().total(cells.length * state.price);
+  payAmount = cells.length * state.price;
+  $('total').textContent = T().total(payAmount);
   $('perWash').textContent = T().perWash(state.price);
   // Заметки админа к выбранным машинкам — ещё раз перед записью
   $('confirmNotes').innerHTML = '';
@@ -530,6 +571,92 @@ $('go').onclick = () => {
   $('confirmBg').classList.add('open');
 };
 $('cancelConfirm').onclick = () => $('confirmBg').classList.remove('open');
+
+// ---------- оплата по реквизитам ----------
+// Реквизиты общежития ВШЭ (открытые данные организации). Первые пять — в порядке, в каком их просит банк.
+const PAY = {
+  acc: '03214643000000013225', bic: '012202102', inn: '7714030726', kbk: '00000000000000000130', oktmo: '40301000',
+  purpose: 'Ленсовета 29, стирка',
+  name: 'УФК по Нижегородской области (НИУ ВШЭ-САНКТ-ПЕТЕРБУРГ, л/ч 30726U37210)', kpp: '783902001',
+  corr: '40102810745370000024', bank: 'ОКЦ №1 ВВГУ Банка России//УФК по Нижегородской области г. Нижний Новгород',
+};
+const PAY_MAIN = ['acc', 'bic', 'inn', 'kbk', 'oktmo', 'purpose', 'sum'];
+const PAY_MORE = ['name', 'kpp', 'corr', 'bank'];
+let payAmount = 0;
+const payValue = k => k === 'sum' ? String(payAmount) : PAY[k];
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+  // Запасной путь для встроенных браузеров (Telegram и т. п.)
+  const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove(); return ok;
+}
+function payRow(k, n) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'prow';
+  b.innerHTML = '<div><span></span><b></b></div><div class="cp"></div>';
+  b.querySelector('span').textContent = (n ? n + '. ' : '') + T().payF[k];
+  b.querySelector('b').textContent = payValue(k);
+  b.querySelector('.cp').textContent = T().payCopy;
+  b.onclick = async () => {
+    if (await copyText(payValue(k))) { toast(T().payCopied(T().payF[k])); b.classList.add('copied'); }
+    else toast(T().payCopyFail);
+  };
+  return b;
+}
+// QR по ГОСТ Р 56042-2014 (понимают Сбер, Т-Банк, ВТБ, Альфа и др.); сумма — в копейках
+function gostQr() {
+  const f = { Name: PAY.name, PersonalAcc: PAY.acc, BankName: PAY.bank, BIC: PAY.bic, CorrespAcc: PAY.corr,
+    PayeeINN: PAY.inn, KPP: PAY.kpp, CBC: PAY.kbk, OKTMO: PAY.oktmo, Purpose: PAY.purpose, Sum: String(payAmount * 100) };
+  return 'ST00012|' + Object.keys(f).map(k => k + '=' + String(f[k]).replace(/\|/g, ' ')).join('|');
+}
+function loadQrLib() {
+  if (window.qrcode) return Promise.resolve();
+  return loadQrLib.p || (loadQrLib.p = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+    sc.onload = res; sc.onerror = () => { loadQrLib.p = null; rej(); }; document.head.appendChild(sc);
+  }));
+}
+async function drawQr() {
+  const box = $('payQr').parentElement;
+  try { await loadQrLib(); } catch (e) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  const q = qrcode(0, 'M'); q.addData(gostQr(), 'Byte'); q.make();
+  const n = q.getModuleCount(), quiet = 4, scale = Math.ceil(660 / (n + quiet * 2));
+  const cv = $('payQr'); cv.width = cv.height = (n + quiet * 2) * scale;
+  const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+}
+$('payOpen').onclick = () => {
+  $('paySum').textContent = T().paySum(payAmount);
+  const rows = $('payRows'); rows.innerHTML = '';
+  PAY_MAIN.forEach((k, i) => rows.appendChild(payRow(k, i + 1)));
+  const more = document.createElement('div'); more.className = 'pay-more'; more.textContent = T().payMore; rows.appendChild(more);
+  PAY_MORE.forEach(k => rows.appendChild(payRow(k)));
+  $('payBg').classList.add('open');
+  drawQr();
+};
+$('payCopyAll').onclick = async () => {
+  const text = [...PAY_MAIN, ...PAY_MORE].map(k => T().payF[k] + ': ' + payValue(k)).join('\n');
+  toast(await copyText(text) ? T().payAllCopied : T().payCopyFail);
+};
+$('payQrSave').onclick = () => {
+  $('payQr').toBlob(async blob => {
+    const file = new File([blob], 'oplata-stirka.png', { type: 'image/png' });
+    // На телефоне — системное меню «Сохранить изображение», на компьютере — обычное скачивание
+    try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }, 'image/png');
+};
+$('payDone').onclick = () => {
+  $('payBg').classList.remove('open');
+  $('bookErr').textContent = T().payAttach;
+  $('receipt').scrollIntoView({ block: 'center' });
+};
 
 function readFile(file) {
   return new Promise((resolve, reject) => {
