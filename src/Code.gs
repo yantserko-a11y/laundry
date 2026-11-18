@@ -186,6 +186,7 @@ function adminApi(req) {
   if (req.op === 'logout') { revokeAdminToken_(req.token); return { ok: true }; }
   checkAdminToken_(req.token);
   if (req.op === 'get') return { disabled: disabled_(), notes: notes_() };
+  if (req.op === 'shareReceipts') return { shared: shareReceipts() };
   if (req.op === 'setMachines') {
     const out = {};
     Object.keys(req.machines || {}).forEach(k => {
@@ -338,7 +339,22 @@ function saveReceipt_(receipt, name, room) {
   const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(RECEIPTS_FOLDER);
   const fileName = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH-mm') + ' ' + room + ' ' + name + ' — ' + (receipt.name || 'квитанция');
   const file = folder.createFile(Utilities.newBlob(bytes, receipt.mime || 'application/octet-stream', fileName));
+  // Квитанцию по ссылке из таблицы может открыть любой, без входа в Google
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { console.warn('setSharing: ' + e); }
   return file.getUrl();
+}
+
+/** Открыть по ссылке (только просмотр) папку и все уже загруженные квитанции. Возвращает число файлов. */
+function shareReceipts() {
+  let n = 0;
+  const folders = DriveApp.getFoldersByName(RECEIPTS_FOLDER);
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const files = folder.getFiles();
+    while (files.hasNext()) { files.next().setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); n++; }
+  }
+  return n;
 }
 
 /**

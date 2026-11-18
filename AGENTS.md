@@ -17,7 +17,7 @@
 
 - **Сайт для людей:** https://yantserko-a11y.github.io/laundry/ (GitHub Pages, папка `docs/` ветки `main`).
 - **Бэкенд:** Google Apps Script, привязанный к Google-таблице «Стирка — записи». Опубликован как веб-приложение (Execute as: владелец, доступ: Anyone). Адрес — константа `API_URL` в `src/Index.html`.
-- **Данные:** лист «Записи» той же таблицы. Квитанции — папка «Стирка — квитанции» на Google Drive владельца.
+- **Данные:** лист «Записи» той же таблицы. Квитанции — папка «Стирка — квитанции» на Google Drive владельца; каждая открыта по ссылке на просмотр (`setSharing` в `saveReceipt_`), чтобы ссылку из таблицы мог открыть кто угодно. Старые файлы открывает `shareReceipts()` (из редактора или админ-операцией `{"action":"admin","token","op":"shareReceipts"}`).
 
 ```
 Браузер (github.io) ──fetch, без cookies──▶ Apps Script /exec (doGet/doPost) ──▶ Google-таблица + Drive
