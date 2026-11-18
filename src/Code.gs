@@ -185,6 +185,8 @@ function adminApi(req) {
   }
   if (req.op === 'logout') { revokeAdminToken_(req.token); return { ok: true }; }
   checkAdminToken_(req.token);
+  ensureTrigger_();
+  if (req.op === 'triggerInfo') return { triggers: ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction() + ':' + t.getEventType()), version: PropertiesService.getScriptProperties().getProperty('resetTrigger') };
   if (req.op === 'get') return { disabled: disabled_(), notes: notes_() };
   if (req.op === 'shareReceipts') return { shared: shareReceipts() };
   if (req.op === 'paidTotal') { const sh = sheet_(); setPaidTotal_(sh); SpreadsheetApp.flush(); return { header: sh.getRange(1, COL.paid + 1).getDisplayValue(), formula: sh.getRange(1, COL.paid + 1).getFormula() }; }
@@ -376,58 +378,71 @@ function shareReceipts() {
 }
 
 /**
- * Еженедельный сброс: в ночь с воскресенья на понедельник удаляет записи прошедших дней,
- * в таблице остаётся только текущая неделя. Запускается триггером, см. ensureTrigger_.
+ * Строку оставляем, если её дата — в текущем месяце или позже (ключи вида yyyyMMdd).
+ * Строки с нераспознанной датой (ручные пометки) не трогаем.
  */
-function weeklyReset() {
+function keepRow_(date, monthStartKey) {
+  const p = String(date).split('.');
+  if (p.length !== 3 || p[2].length !== 4) return true;
+  return p[2] + p[1] + p[0] >= monthStartKey;
+}
+
+/**
+ * Очистка истории: таблица хранит записи текущего календарного месяца.
+ * Триггер срабатывает каждую ночь (~00:00 МСК), но удаляет что-то только 1-го числа,
+ * когда записи прошлого месяца становятся «старыми». Записаться на сайте по-прежнему
+ * можно только с сегодня до воскресенья (days_), прошлые дни на проверку слотов не влияют.
+ */
+function cleanupHistory() {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const sh = sheet_();
     const last = sh.getLastRow();
     if (last < 2) return;
-    const today = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd');
+    const monthStart = Utilities.formatDate(new Date(), TZ, 'yyyyMM') + '01';
     const values = sh.getRange(2, 1, last - 1, HEADERS.length).getDisplayValues();
-    const keep = values.filter(r => {
-      const p = r[COL.date].split('.');
-      return p.length === 3 && p[2] + p[1] + p[0] >= today;
-    });
+    const keep = values.filter(r => keepRow_(r[COL.date], monthStart));
+    if (keep.length === values.length) return;
     sh.getRange(2, 1, last - 1, HEADERS.length).clearContent();
-    if (keep.length) sh.getRange(2, 1, keep.length, HEADERS.length).setValues(keep);
+    if (keep.length) sh.getRange(2, 1, keep.length, HEADERS.length).setNumberFormat('@').setValues(keep);
     dropRowsCache_();
   } finally {
     lock.releaseLock();
   }
 }
 
-/** Ставит еженедельный триггер сброса (пн 00:00 по Москве), если его ещё нет. */
+/** Старое имя: на случай, если где-то остался прежний еженедельный триггер. */
+function weeklyReset() { cleanupHistory(); }
+
+const RESET_TRIGGER_VERSION = 'daily-month'; // поменять, чтобы ensureTrigger_ пересоздал триггер
+
+/** Ставит ежедневный триггер очистки истории, если его ещё нет (заменяет старый еженедельный). */
 function ensureTrigger_() {
   const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('resetTrigger')) return;
-  const exists = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'weeklyReset');
-  if (!exists) {
-    ScriptApp.newTrigger('weeklyReset').timeBased()
-      .onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(0).nearMinute(0).inTimezone(TZ).create();
-  }
-  props.setProperty('resetTrigger', '1');
+  if (props.getProperty('resetTrigger') === RESET_TRIGGER_VERSION) return;
+  installTrigger_();
+}
+
+function installTrigger_() {
+  removeMyTriggers();
+  ScriptApp.newTrigger('cleanupHistory').timeBased().everyDays(1).atHour(0).nearMinute(5).inTimezone(TZ).create();
+  PropertiesService.getScriptProperties().setProperty('resetTrigger', RESET_TRIGGER_VERSION);
 }
 
 /**
- * Пересоздаёт еженедельный триггер от имени того, кто запускает функцию.
+ * Пересоздаёт триггер очистки от имени того, кто запускает функцию.
  * Нужно после смены владельца: триггеры принадлежат конкретному аккаунту.
  */
 function reinstallTrigger() {
-  removeMyTriggers();
-  ScriptApp.newTrigger('weeklyReset').timeBased()
-    .onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(0).nearMinute(0).inTimezone(TZ).create();
-  PropertiesService.getScriptProperties().setProperty('resetTrigger', '1');
-  Logger.log('Триггер weeklyReset установлен от имени ' + Session.getEffectiveUser().getEmail());
+  installTrigger_();
+  Logger.log('Триггер cleanupHistory установлен от имени ' + Session.getEffectiveUser().getEmail());
 }
 
-/** Удаляет триггеры weeklyReset текущего аккаунта (например, бывшего владельца). */
+/** Удаляет триггеры очистки текущего аккаунта (например, бывшего владельца). */
 function removeMyTriggers() {
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'weeklyReset')
+    .filter(t => t.getHandlerFunction() === 'weeklyReset' || t.getHandlerFunction() === 'cleanupHistory')
     .forEach(t => ScriptApp.deleteTrigger(t));
 }
 
